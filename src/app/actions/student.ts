@@ -9,6 +9,8 @@ import { db } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google-calendar";
 import { sendMail } from "@/lib/mail";
+import { bookingConfirmationIcs } from "@/lib/reminders";
+import { canReview } from "@/lib/reviews";
 import { requireUser } from "@/lib/session";
 import { absoluteUrl, platformFeePercent, site } from "@/lib/site";
 import { getAvailableSlots } from "@/lib/slots";
@@ -28,7 +30,7 @@ export async function startCheckout(formData: FormData) {
     where: { id: String(formData.get("packageId")), active: true },
     include: { tutor: { include: { user: true } } },
   });
-  if (!pkg) throw new Error("Balíček nebyl nalezen.");
+  if (!pkg || pkg.tutor.suspended) throw new Error("Balíček nebyl nalezen.");
   if (pkg.tutor.userId === user.id) throw new Error("Nemůžete koupit vlastní balíček.");
 
   // Zkušební lekci lze koupit u lektora jen jednou.
@@ -58,7 +60,7 @@ export async function startCheckout(formData: FormData) {
 
   if (!stripeEnabled) {
     if (!fakePaymentsEnabled) throw new Error("Platby nejsou nakonfigurovány.");
-    await db.purchase.update({ where: { id: purchase.id }, data: { status: "PAID", paidAt: new Date() } });
+    await db.purchase.update({ where: { id: purchase.id }, data: { status: "PAID", source: "DEV", paidAt: new Date() } });
     redirect(`${back}?zaplaceno=1`);
   }
 
@@ -139,6 +141,12 @@ export async function bookLesson(_: FormState, formData: FormData): Promise<Form
   }
 
   await sendMail({
+    to: user.email,
+    subject: `Potvrzení lekce: ${formatDateTime(start, user.timezone)} (lektor: ${tutor.user.name})`,
+    text: `Dobrý den,\n\nvaše lekce je rezervována na ${formatDateTime(start, user.timezone)} (${purchase.durationMin} min, lektor: ${tutor.user.name}).${meetLink ? `\nOdkaz na hovor: ${meetLink}` : ""}\n\nZrušit bez ztráty lekce můžete nejpozději ${tutor.cancelHours} h předem:\n${absoluteUrl(`/dashboard/lektor/${tutorId}`)}\n\nV příloze je událost do kalendáře. Den předem vám pošleme připomínku.`,
+    attachments: [bookingConfirmationIcs({ id: lesson.id, startsAt: start, endsAt: end, meetLink }, tutor.user.name ?? "lektor")],
+  });
+  await sendMail({
     to: tutor.user.email,
     subject: `Nová rezervace: ${user.name} – ${formatDateTime(start, tutor.user.timezone)}`,
     text: `${user.name} (${user.email}) si rezervoval(a) lekci na ${formatDateTime(start, tutor.user.timezone)}.\n\n${absoluteUrl("/dashboard/lekce")}`,
@@ -177,4 +185,29 @@ export async function acceptInvitation(formData: FormData) {
   await ensureEnrollment(inv.tutorId, user.id);
   if (!inv.acceptedAt) await db.invitation.update({ where: { id: inv.id }, data: { acceptedAt: new Date() } });
   redirect(`/dashboard/lektor/${inv.tutorId}?vitejte=1`);
+}
+
+export async function submitReview(_: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireUser();
+  const tutorId = String(formData.get("tutorId"));
+  const rating = Number(formData.get("rating"));
+  const comment = String(formData.get("comment") ?? "").trim().slice(0, 1500);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { error: "Vyberte počet hvězdiček." };
+  if (!(await canReview(tutorId, user.id))) return { error: "Hodnotit můžete až po první absolvované lekci." };
+
+  const tutor = await db.tutorProfile.update({
+    where: { id: tutorId },
+    data: {
+      reviews: {
+        upsert: {
+          where: { tutorId_studentId: { tutorId, studentId: user.id } },
+          create: { studentId: user.id, rating, comment },
+          update: { rating, comment },
+        },
+      },
+    },
+  });
+  revalidatePath(`/lektori/${tutor.slug}`);
+  revalidatePath(`/dashboard/lektor/${tutorId}`);
+  return { ok: true, message: "Děkujeme za hodnocení!" };
 }

@@ -21,3 +21,9 @@ export async function requireTutor() {
   if (!profile) redirect("/dashboard");
   return { user, profile };
 }
+
+export async function requireAdmin() {
+  const user = await requireUser();
+  if (user.role !== "ADMIN") redirect("/dashboard");
+  return user;
+}

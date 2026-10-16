@@ -10,6 +10,11 @@ Platforma si bere jen provizi z prodaných lekcí (Stripe Connect – `applicati
   karta studenta (zbývající lekce, nákupy, soukromé poznámky), záznam z každé lekce (téma, poznámky, úkol),
   přehled tržeb a provizí, napojení Stripe a Google Kalendáře
 - **Student**: nákup lekcí kartou, výběr volného termínu, zbývající lekce, storno ve lhůtě, historie lekcí s poznámkami a úkoly
+- **Hodnocení**: hvězdičky a recenze od studentů s absolvovanou lekcí, průměr v katalogu i v datech pro Google (AggregateRating)
+- **Připomínky**: potvrzení rezervace studentovi (s .ics souborem do kalendáře), připomínka studentovi i lektorovi 24 h předem
+- **Ruční připsání lekcí**: lektor připíše lekce zaplacené mimo platformu; provize z uvedené částky se eviduje jako dlužná
+- **Administrace** (`/admin`): obrat, provize, dlužné provize a jejich vyrovnání, pozastavení lektorů, moderace hodnocení, správa adminů
+- **Právní stránky**: obchodní podmínky a zásady ochrany osobních údajů (šablony – údaje provozovatele z `.env`, nechte zkontrolovat právníkem), souhlas při registraci
 - **Google Kalendář**: obsazené časy lektora se skryjí (freeBusy), rezervace se zapíše do kalendáře s Google Meet a pozvánkou pro studenta
 - **SEO**: SSR, metadata + Open Graph, kanonické URL, `sitemap.xml`, `robots.txt`, JSON-LD (Organization, WebSite, Person + Offer, FAQPage, BreadcrumbList), landing stránky pro každý jazyk (`/jazyky/anglictina`…)
 
@@ -27,7 +32,9 @@ npm run db:seed           # ukázková data (heslo: heslo1234)
 npm run dev
 ```
 
-Testovací účty: `lektor@example.com`, `lektor2@example.com`, `student@example.com` (heslo `heslo1234`).
+Testovací účty: `lektor@example.com`, `lektor2@example.com`, `student@example.com`, `admin@example.com` (heslo `heslo1234`).
+
+Administrátora z existujícího účtu uděláte příkazem `npm run make-admin -- email@domena.cz`.
 
 Bez Stripe klíče se v developmentu platby **simulují** (lekce se připíší hned). Bez SMTP se e-maily (pozvánky, reset hesla) vypisují do konzole a odkaz na pozvánku se zobrazí lektorovi.
 
@@ -42,6 +49,9 @@ Bez Stripe klíče se v developmentu platby **simulují** (lekce se připíší 
 4. **Provize** – `PLATFORM_FEE_PERCENT` (výchozí 10).
 5. **E-maily** – SMTP (`SMTP_HOST`, …), např. Resend, Postmark, Mailgun.
 6. `NEXT_PUBLIC_SITE_URL` a `NEXTAUTH_URL` nastavte na produkční doménu.
+7. **Provozovatel** – `OPERATOR_NAME`, `OPERATOR_ID`, `OPERATOR_ADDRESS`, `OPERATOR_EMAIL`, `OPERATOR_BANK_ACCOUNT` (zobrazí se v podmínkách a u dlužných provizí).
+8. **Připomínky** – nastavte `CRON_SECRET`. Na Vercelu se `/api/cron/reminders` spouští každou hodinu sám (`vercel.json`);
+   jinde přidejte cron: `curl -H "Authorization: Bearer $CRON_SECRET" https://VASE-DOMENA/api/cron/reminders`.
 
 Nasazení: nejjednodušší je Vercel (+ Postgres), funguje ale jakýkoli Node hosting (`npm run build && npm start`).
 
@@ -51,6 +61,7 @@ Nasazení: nejjednodušší je Vercel (+ Postgres), funguje ale jakýkoli Node h
 prisma/schema.prisma     datový model (uživatelé, profily, balíčky, nákupy, lekce, dostupnost, pozvánky)
 src/app/                 stránky (veřejné SEO stránky, /dashboard, auth)
 src/app/actions/         server actions (auth, lektor, student)
-src/app/api/             NextAuth + Stripe webhook
+src/app/admin/           administrace provozovatele
+src/app/api/             NextAuth, Stripe webhook, cron připomínek
 src/lib/                 auth, db, stripe, google-calendar, slots (volné termíny), credits (zbývající lekce)
 ```

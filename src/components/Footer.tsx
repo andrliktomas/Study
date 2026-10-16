@@ -41,8 +41,12 @@ export function Footer() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-slate-100 py-6 text-center text-xs text-ink-faint">
-        © {new Date().getFullYear()} {site.name}. Všechna práva vyhrazena.
+      <div className="container-page flex flex-col items-center justify-between gap-3 border-t border-slate-100 py-6 text-xs text-ink-faint sm:flex-row">
+        <span>© {new Date().getFullYear()} {site.name}. Všechna práva vyhrazena.</span>
+        <span className="flex gap-4">
+          <Link href="/obchodni-podminky" className="hover:text-brand-600">Obchodní podmínky</Link>
+          <Link href="/ochrana-osobnich-udaju" className="hover:text-brand-600">Ochrana osobních údajů</Link>
+        </span>
       </div>
     </footer>
   );

@@ -27,6 +27,11 @@ export async function Header() {
         <div className="hidden items-center gap-2 md:flex">
           {session ? (
             <>
+              {session.user.role === "ADMIN" && (
+                <Link href="/admin" className="btn-ghost">
+                  Administrace
+                </Link>
+              )}
               <Link href="/dashboard" className="btn-primary">
                 Můj přehled
               </Link>

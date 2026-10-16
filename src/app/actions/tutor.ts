@@ -10,9 +10,10 @@ import { formatDateTime, hhmmToMinutes, slugify } from "@/lib/format";
 import { deleteCalendarEvent, getCalendarToken } from "@/lib/google-calendar";
 import { LANGUAGES, LEVELS } from "@/lib/languages";
 import { sendMail } from "@/lib/mail";
+import { bookingConfirmationIcs } from "@/lib/reminders";
 import { requireTutor } from "@/lib/session";
-import { absoluteUrl, site } from "@/lib/site";
-import { stripe, stripeEnabled } from "@/lib/stripe";
+import { absoluteUrl, platformFeePercent, site } from "@/lib/site";
+import { platformFeeCents, stripe, stripeEnabled } from "@/lib/stripe";
 import { randomToken } from "@/lib/tokens";
 
 const optionalUrl = z
@@ -200,6 +201,7 @@ export async function cancelLessonByTutor(formData: FormData) {
     to: lesson.student.email,
     subject: `Lekce ${formatDateTime(lesson.startsAt, lesson.student.timezone)} byla zrušena`,
     text: `Lektor ${user.name} zrušil lekci ${formatDateTime(lesson.startsAt, lesson.student.timezone)}. Lekce se vám vrátila do balíčku a můžete si vybrat nový termín:\n${absoluteUrl(`/dashboard/lektor/${profile.id}`)}`,
+    attachments: [bookingConfirmationIcs(lesson, user.name ?? "lektor", true)],
   });
   revalidatePath("/dashboard", "layout");
 }
@@ -242,4 +244,53 @@ export async function openStripeDashboard() {
   if (!profile.stripeAccountId) redirect("/dashboard/vyplaty");
   const link = await stripe().accounts.createLoginLink(profile.stripeAccountId);
   redirect(link.url);
+}
+
+const manualSchema = z.object({
+  studentId: z.string(),
+  lessonCount: z.coerce.number().int().min(1, "Alespoň 1 lekce").max(100),
+  durationMin: z.coerce.number().int().min(15).max(240),
+  amount: z.coerce.number().min(0, "Částka nemůže být záporná").max(1_000_000),
+  currency: z.enum(["czk", "eur"]),
+  note: z.string().trim().min(3, "Uveďte důvod (např. platba převodem, převod předplacených lekcí)").max(300),
+});
+
+/**
+ * Ruční připsání lekcí (platba mimo platformu, převod předplacených hodin).
+ * Provize z uvedené částky se eviduje jako dlužná a provozovatel ji lektorovi vyúčtuje.
+ */
+export async function grantManualLessons(_: FormState, formData: FormData): Promise<FormState> {
+  const { profile } = await requireTutor();
+  const parsed = manualSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const d = parsed.data;
+
+  const enrollment = await db.enrollment.findUnique({ where: { tutorId_studentId: { tutorId: profile.id, studentId: d.studentId } } });
+  if (!enrollment) return { error: "Student nenalezen." };
+
+  const amountCents = Math.round(d.amount * 100);
+  const fee = platformFeeCents(amountCents, platformFeePercent());
+  await db.purchase.create({
+    data: {
+      tutorId: profile.id,
+      studentId: d.studentId,
+      packageName: `Ručně připsáno: ${d.lessonCount}× ${d.durationMin} min`,
+      lessonsTotal: d.lessonCount,
+      durationMin: d.durationMin,
+      amountCents,
+      platformFeeCents: fee,
+      currency: d.currency,
+      status: "PAID",
+      source: "MANUAL",
+      note: d.note,
+      paidAt: new Date(),
+      feeSettledAt: fee === 0 ? new Date() : null,
+    },
+  });
+  revalidatePath(`/dashboard/studenti/${d.studentId}`);
+  revalidatePath("/dashboard/vyplaty");
+  return {
+    ok: true,
+    message: fee > 0 ? `Připsáno ${d.lessonCount} lekcí. Provize ${(fee / 100).toFixed(0)} ${d.currency.toUpperCase()} vám bude vyúčtována.` : `Připsáno ${d.lessonCount} lekcí.`,
+  };
 }

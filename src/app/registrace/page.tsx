@@ -42,6 +42,10 @@ export default async function RegisterPage({ searchParams }: { searchParams: { r
       {googleEnabled && (
         <>
           <GoogleButton callbackUrl={googleCallback} label="Registrovat přes Google" />
+          <p className="mt-2 text-center text-xs text-ink-faint">
+            Pokračováním souhlasíte s <Link href="/obchodni-podminky" className="underline">obchodními podmínkami</Link> a{" "}
+            <Link href="/ochrana-osobnich-udaju" className="underline">zásadami ochrany osobních údajů</Link>.
+          </p>
           <Divider />
         </>
       )}

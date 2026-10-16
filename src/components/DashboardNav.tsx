@@ -14,10 +14,12 @@ const TUTOR_LINKS = [
 
 export function DashboardNav({
   isTutor,
+  isAdmin,
   profileSlug,
   tutors,
 }: {
   isTutor: boolean;
+  isAdmin?: boolean;
   profileSlug: string | null;
   tutors: { id: string; name: string }[];
 }) {
@@ -50,6 +52,7 @@ export function DashboardNav({
         )}
         <p className="hidden px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-ink-faint lg:block">Účet</p>
         {item("/dashboard/nastaveni", "Nastavení", "⚙️")}
+        {isAdmin && item("/admin", "Administrace", "🛡️")}
         {profileSlug && (
           <Link href={`/lektori/${profileSlug}`} className="flex items-center gap-3 whitespace-nowrap rounded-xl px-3 py-2 text-sm text-brand-600 hover:bg-brand-50">
             <span aria-hidden>↗</span> Zobrazit můj profil

@@ -25,6 +25,7 @@ const registerSchema = z.object({
   email: z.string().trim().toLowerCase().email("Neplatný e-mail"),
   password,
   role: z.enum(["tutor", "student"]),
+  terms: z.literal("on", { errorMap: () => ({ message: "Pro registraci je nutný souhlas s obchodními podmínkami." }) }),
 });
 
 export async function register(_: FormState, formData: FormData): Promise<FormState> {
@@ -41,6 +42,7 @@ export async function register(_: FormState, formData: FormData): Promise<FormSt
       name,
       email,
       passwordHash,
+      termsAcceptedAt: new Date(),
       role: role === "tutor" ? "TUTOR" : "STUDENT",
       ...(role === "tutor" ? { tutorProfile: { create: { slug: await uniqueTutorSlug(name) } } } : {}),
     },

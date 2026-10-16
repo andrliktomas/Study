@@ -15,3 +15,12 @@ export function platformFeePercent() {
   const v = Number(process.env.PLATFORM_FEE_PERCENT ?? "10");
   return Number.isFinite(v) && v >= 0 && v < 100 ? v : 10;
 }
+
+/** Údaje provozovatele – doplňte v .env, zobrazují se v obchodních podmínkách a zásadách ochrany údajů. */
+export const operator = {
+  name: process.env.OPERATOR_NAME || "[Název / jméno provozovatele]",
+  id: process.env.OPERATOR_ID || "[IČO]",
+  address: process.env.OPERATOR_ADDRESS || "[Sídlo / adresa]",
+  email: process.env.OPERATOR_EMAIL || "[kontaktní e-mail]",
+  bankAccount: process.env.OPERATOR_BANK_ACCOUNT || "[číslo účtu pro úhradu provizí]",
+};

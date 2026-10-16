@@ -8,6 +8,8 @@ import { getCreditSummary } from "@/lib/credits";
 import { db } from "@/lib/db";
 import { formatDate, formatMoney } from "@/lib/format";
 import { requireTutor } from "@/lib/session";
+import { platformFeePercent } from "@/lib/site";
+import { ManualGrantForm } from "./ManualGrantForm";
 
 export default async function StudentDetailPage({ params }: { params: { studentId: string } }) {
   const { user, profile } = await requireTutor();
@@ -53,13 +55,21 @@ export default async function StudentDetailPage({ params }: { params: { studentI
             <textarea name="notes" rows={6} defaultValue={enrollment.notes} className="input" placeholder="Úroveň, cíle, silné a slabé stránky… (student nevidí)" />
             <SubmitButton className="btn-secondary w-full">Uložit</SubmitButton>
           </form>
+          <details className="card group">
+            <summary className="flex cursor-pointer list-none items-center justify-between font-semibold">
+              Připsat lekce ručně
+              <span className="text-brand-600 transition group-open:rotate-45">+</span>
+            </summary>
+            <p className="mb-3 mt-2 text-sm text-ink-soft">Když vám student zaplatil mimo platformu, nebo převádíte jeho předplacené hodiny.</p>
+            <ManualGrantForm studentId={s.id} feePercent={platformFeePercent()} />
+          </details>
           <div className="card">
             <h2 className="font-semibold">Nákupy</h2>
             {purchases.length === 0 ? <p className="mt-2 text-sm text-ink-faint">Žádné.</p> : (
               <ul className="mt-3 space-y-2 text-sm">
                 {purchases.map((p) => (
                   <li key={p.id} className="flex justify-between gap-2">
-                    <span>{p.packageName}<span className="block text-xs text-ink-faint">{formatDate(p.paidAt ?? p.createdAt, user.timezone)}{p.status === "REFUNDED" && " · vráceno"}</span></span>
+                    <span>{p.packageName}<span className="block text-xs text-ink-faint">{formatDate(p.paidAt ?? p.createdAt, user.timezone)}{p.status === "REFUNDED" && " · vráceno"}{p.source === "MANUAL" && " · ručně"}</span></span>
                     <span className="font-medium">{formatMoney(p.amountCents, p.currency)}</span>
                   </li>
                 ))}

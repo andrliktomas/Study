@@ -4,7 +4,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { db } from "@/lib/db";
 import { formatDate, formatMoney } from "@/lib/format";
 import { requireTutor } from "@/lib/session";
-import { platformFeePercent } from "@/lib/site";
+import { operator, platformFeePercent } from "@/lib/site";
 import { fakePaymentsEnabled, stripe, stripeEnabled } from "@/lib/stripe";
 
 export default async function PayoutsPage({ searchParams }: { searchParams: { navrat?: string; chyba?: string } }) {
@@ -26,6 +26,11 @@ export default async function PayoutsPage({ searchParams }: { searchParams: { na
     orderBy: { paidAt: "desc" },
     take: 50,
   });
+  const owed = await db.purchase.aggregate({
+    where: { tutorId: profile.id, source: "MANUAL", status: "PAID", feeSettledAt: null },
+    _sum: { platformFeeCents: true },
+  });
+  const owedCents = owed._sum.platformFeeCents ?? 0;
   const paid = purchases.filter((p) => p.status === "PAID");
   const gross = paid.reduce((s, p) => s + p.amountCents, 0);
   const fees = paid.reduce((s, p) => s + p.platformFeeCents, 0);
@@ -57,6 +62,12 @@ export default async function PayoutsPage({ searchParams }: { searchParams: { na
         )}
       </div>
 
+      {owedCents > 0 && (
+        <Notice tone="warn">
+          Provize z ručně připsaných lekcí k úhradě: <strong>{formatMoney(owedCents)}</strong>. Uhraďte ji prosím na účet {operator.bankAccount}{" "}
+          (do zprávy uveďte svůj e-mail). Po připsání ji označíme jako zaplacenou.
+        </Notice>
+      )}
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Prodeje celkem" value={formatMoney(gross)} />
         <Stat label="Provize platformy" value={formatMoney(fees)} />
@@ -74,7 +85,14 @@ export default async function PayoutsPage({ searchParams }: { searchParams: { na
               <tr key={p.id} className={`hover:bg-brand-50/40 ${p.status === "REFUNDED" ? "text-ink-faint line-through" : ""}`}>
                 <td className="p-4">{p.paidAt && formatDate(p.paidAt, user.timezone)}</td>
                 <td className="p-4">{p.student.name ?? p.student.email}</td>
-                <td className="p-4">{p.packageName}</td>
+                <td className="p-4">
+                  {p.packageName}
+                  {p.source === "MANUAL" && (
+                    <span className={`badge ml-2 ${p.feeSettledAt ? "bg-slate-100 text-ink-faint" : "bg-amber-100 text-amber-800"}`}>
+                      {p.feeSettledAt ? "ručně · vyrovnáno" : "ručně · provize k úhradě"}
+                    </span>
+                  )}
+                </td>
                 <td className="p-4 text-right">{formatMoney(p.amountCents, p.currency)}</td>
                 <td className="p-4 text-right text-ink-faint">{formatMoney(p.platformFeeCents, p.currency)}</td>
                 <td className="p-4 text-right font-semibold">{formatMoney(p.amountCents - p.platformFeeCents, p.currency)}</td>

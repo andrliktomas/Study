@@ -3,6 +3,7 @@ import { formatMoney } from "@/lib/format";
 import { languageByCode, parseList } from "@/lib/languages";
 import { lowestLessonPrice, type PublicTutor } from "@/lib/tutors";
 import { Avatar } from "./Avatar";
+import { RatingSummary } from "./Stars";
 
 export function TutorCard({ tutor }: { tutor: PublicTutor }) {
   const price = lowestLessonPrice(tutor);
@@ -14,6 +15,7 @@ export function TutorCard({ tutor }: { tutor: PublicTutor }) {
         <div className="min-w-0">
           <h3 className="truncate font-semibold group-hover:text-brand-700">{tutor.user.name}</h3>
           <p className="line-clamp-1 text-sm text-ink-soft">{tutor.headline || "Online lektor"}</p>
+          <RatingSummary avg={tutor.rating.avg} count={tutor.rating.count} />
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-1.5">

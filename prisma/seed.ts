@@ -68,6 +68,12 @@ async function main() {
     },
   });
 
+  await db.user.upsert({
+    where: { email: "admin@example.com" },
+    update: {},
+    create: { email: "admin@example.com", name: "Admin Platformy", passwordHash, role: "ADMIN", termsAcceptedAt: new Date() },
+  });
+
   const student = await db.user.upsert({
     where: { email: "student@example.com" },
     update: {},
@@ -94,6 +100,7 @@ async function main() {
         platformFeeCents: 25000,
         currency: "czk",
         status: "PAID",
+        source: "DEV",
         paidAt: new Date(Date.now() - 14 * 864e5),
       },
     });
@@ -116,7 +123,13 @@ async function main() {
     });
   }
 
-  console.log("Seed hotový. Účty (heslo: heslo1234): lektor@example.com, lektor2@example.com, student@example.com");
+  await db.review.upsert({
+    where: { tutorId_studentId: { tutorId, studentId: student.id } },
+    update: {},
+    create: { tutorId, studentId: student.id, rating: 5, comment: "Jana je skvělá – lekce jsou praktické a konečně se nebojím mluvit." },
+  });
+
+  console.log("Seed hotový. Účty (heslo: heslo1234): lektor@example.com, lektor2@example.com, student@example.com, admin@example.com");
 }
 
 main().finally(() => db.$disconnect());

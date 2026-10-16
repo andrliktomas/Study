@@ -20,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="container-page grid gap-8 py-8 lg:grid-cols-[230px_1fr]">
       <DashboardNav
         isTutor={Boolean(profile)}
+        isAdmin={user.role === "ADMIN"}
         profileSlug={profile?.published ? profile.slug : null}
         tutors={enrollments.map((e) => ({ id: e.tutorId, name: e.tutor.user.name ?? "Lektor" }))}
       />

@@ -1,9 +1,11 @@
 import { db } from "./db";
+import { getRatings } from "./reviews";
 
 export async function getPublishedTutors(opts: { language?: string; q?: string } = {}) {
   const tutors = await db.tutorProfile.findMany({
     where: {
       published: true,
+      suspended: false,
       ...(opts.language ? { languages: { contains: opts.language } } : {}),
     },
     include: {
@@ -13,9 +15,11 @@ export async function getPublishedTutors(opts: { language?: string; q?: string }
     },
     orderBy: { createdAt: "desc" },
   });
+  const ratings = await getRatings(tutors.map((t) => t.id));
+  const withRatings = tutors.map((t) => ({ ...t, rating: ratings.get(t.id) ?? { avg: 0, count: 0 } }));
   const q = opts.q?.trim().toLowerCase();
-  if (!q) return tutors;
-  return tutors.filter((t) =>
+  if (!q) return withRatings;
+  return withRatings.filter((t) =>
     [t.user.name, t.headline, t.bio, t.city].some((f) => f?.toLowerCase().includes(q)),
   );
 }

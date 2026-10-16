@@ -4,6 +4,7 @@ import { cancelLessonByStudent } from "@/app/actions/student";
 import { Avatar } from "@/components/Avatar";
 import { PackageList } from "@/components/PackageList";
 import { CreditBar, LessonStatus, Notice, PageHeader } from "@/components/PageHeader";
+import { ReviewForm } from "@/components/ReviewForm";
 import { SlotPicker } from "@/components/SlotPicker";
 import { SubmitButton } from "@/components/SubmitButton";
 import { getCreditSummary } from "@/lib/credits";
@@ -31,6 +32,10 @@ export default async function StudentTutorPage({ params, searchParams }: { param
   const [credits, lessons] = await Promise.all([
     getCreditSummary(tutor.id, user.id),
     db.lesson.findMany({ where: { tutorId: tutor.id, studentId: user.id }, orderBy: { startsAt: "desc" } }),
+  ]);
+  const [review, completedCount] = await Promise.all([
+    db.review.findUnique({ where: { tutorId_studentId: { tutorId: tutor.id, studentId: user.id } } }),
+    db.lesson.count({ where: { tutorId: tutor.id, studentId: user.id, status: "COMPLETED" } }),
   ]);
   const hadTrial = await db.purchase.count({ where: { tutorId: tutor.id, studentId: user.id, status: "PAID", package: { isTrial: true } } });
   const nextPurchase = credits.purchases.find((p) => p.remaining > 0);
@@ -138,6 +143,13 @@ export default async function StudentTutorPage({ params, searchParams }: { param
               </ul>
             )}
           </section>
+          {completedCount > 0 && (
+            <section className="card">
+              <h2 className="text-lg font-semibold">{review ? "Vaše hodnocení" : "Ohodnoťte lektora"}</h2>
+              <p className="mb-3 mt-1 text-sm text-ink-soft">Pomůžete dalším studentům s výběrem.</p>
+              <ReviewForm tutorId={tutor.id} initial={review ? { rating: review.rating, comment: review.comment } : undefined} />
+            </section>
+          )}
           <section className="card">
             <h2 className="text-lg font-semibold">Koupit lekce</h2>
             <PackageList

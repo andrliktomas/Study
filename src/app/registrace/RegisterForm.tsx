@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
@@ -38,10 +39,16 @@ export function RegisterForm({ role, callbackUrl, defaultEmail }: { role: "tutor
         <input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" className="input" />
         <p className="hint">Alespoň 8 znaků.</p>
       </div>
+      <label className="flex items-start gap-2.5 text-sm text-ink-soft">
+        <input type="checkbox" name="terms" required className="mt-0.5 h-4 w-4 shrink-0 rounded accent-brand-500" />
+        <span>
+          Souhlasím s <Link href="/obchodni-podminky" target="_blank" className="text-brand-600 underline">obchodními podmínkami</Link> a beru na vědomí{" "}
+          <Link href="/ochrana-osobnich-udaju" target="_blank" className="text-brand-600 underline">zásady ochrany osobních údajů</Link>.
+        </span>
+      </label>
       <SubmitButton className="btn-primary w-full py-3" pendingText="Zakládám účet…">
         {role === "tutor" ? "Založit profil lektora" : "Vytvořit účet"}
       </SubmitButton>
-      <p className="text-center text-xs text-ink-faint">Registrací souhlasíte s obchodními podmínkami a zpracováním osobních údajů.</p>
     </form>
   );
 }

@@ -13,7 +13,9 @@ function getTransporter() {
   return transporter;
 }
 
-export async function sendMail(opts: { to: string; subject: string; text: string; html?: string }) {
+export type MailAttachment = { filename: string; content: string; contentType?: string };
+
+export async function sendMail(opts: { to: string; subject: string; text: string; html?: string; attachments?: MailAttachment[] }) {
   const t = getTransporter();
   if (!t) {
     console.info(`\n[mail] SMTP není nastaveno – e-mail by šel na ${opts.to}\nPředmět: ${opts.subject}\n${opts.text}\n`);
