@@ -48,3 +48,14 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Články blogu */
+.prose-article { @apply text-[17px] leading-relaxed text-ink-soft; }
+.prose-article h2 { @apply mb-3 mt-10 text-2xl font-bold text-ink; }
+.prose-article h3 { @apply mb-2 mt-8 text-xl font-semibold text-ink; }
+.prose-article p { @apply mb-4; }
+.prose-article ul { @apply mb-4 ml-6 list-disc space-y-1.5; }
+.prose-article ol { @apply mb-4 ml-6 list-decimal space-y-1.5; }
+.prose-article a { @apply font-medium text-brand-700 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-600; }
+.prose-article strong { @apply font-semibold text-ink; }
+.prose-article blockquote { @apply my-6 rounded-r-xl border-l-4 border-brand-300 bg-brand-50/60 px-5 py-3 italic; }

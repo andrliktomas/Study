@@ -3,7 +3,6 @@ import { PageHeader } from "@/components/PageHeader";
 import { db } from "@/lib/db";
 import { formatMoney, pluralLessons } from "@/lib/format";
 import { requireTutor } from "@/lib/session";
-import { platformFeePercent } from "@/lib/site";
 import { PackageForm } from "./PackageForm";
 
 export default async function PackagesPage() {
@@ -13,11 +12,10 @@ export default async function PackagesPage() {
     orderBy: [{ active: "desc" }, { sortOrder: "asc" }, { priceCents: "asc" }],
     include: { _count: { select: { purchases: { where: { status: "PAID" } } } } },
   });
-  const fee = platformFeePercent();
 
   return (
     <>
-      <PageHeader title="Balíčky a ceny" description={`Co si u vás mohou studenti koupit. Z každé platby si platforma strhne ${fee} %.`} />
+      <PageHeader title="Balíčky a ceny" description="Co si u vás mohou studenti koupit. Celá částka je vaše – bez provize." />
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <div className="space-y-4">
           {packages.length === 0 && <div className="card text-sm text-ink-faint">Zatím nemáte žádný balíček. Začněte třeba zkušební lekcí a balíčkem 5 lekcí.</div>}
@@ -35,7 +33,7 @@ export default async function PackagesPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-bold text-brand-700">{formatMoney(p.priceCents, p.currency)}</p>
-                  <p className="text-xs text-ink-faint">vám: {formatMoney(p.priceCents - Math.round((p.priceCents * fee) / 100), p.currency)}</p>
+                  {p.validityDays && <p className="text-xs text-ink-faint">platnost {p.validityDays} dní</p>}
                 </div>
                 <span className="text-sm text-brand-600 group-open:hidden">Upravit</span>
               </summary>

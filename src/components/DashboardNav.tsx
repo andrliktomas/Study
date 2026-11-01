@@ -9,22 +9,25 @@ const TUTOR_LINKS = [
   { href: "/dashboard/balicky", label: "Balíčky a ceny", icon: "🎟️" },
   { href: "/dashboard/dostupnost", label: "Dostupnost", icon: "⏰" },
   { href: "/dashboard/profil", label: "Veřejný profil", icon: "🪪" },
-  { href: "/dashboard/vyplaty", label: "Platby a výplaty", icon: "💳" },
+  { href: "/dashboard/platby", label: "Platby od studentů", icon: "💳" },
+  { href: "/dashboard/predplatne", label: "Předplatné", icon: "⭐" },
 ];
 
 export function DashboardNav({
   isTutor,
   isAdmin,
+  unread = 0,
   profileSlug,
   tutors,
 }: {
   isTutor: boolean;
   isAdmin?: boolean;
+  unread?: number;
   profileSlug: string | null;
   tutors: { id: string; name: string }[];
 }) {
   const pathname = usePathname();
-  const item = (href: string, label: string, icon: string) => {
+  const item = (href: string, label: string, icon: string, badge?: number) => {
     const active = href === "/dashboard" ? pathname === href : pathname.startsWith(href);
     return (
       <Link
@@ -36,6 +39,11 @@ export function DashboardNav({
       >
         <span aria-hidden>{icon}</span>
         {label}
+        {badge ? (
+          <span className={`ml-auto rounded-full px-1.5 text-xs font-bold ${active ? "bg-white text-brand-700" : "bg-brand-500 text-white"}`} aria-label={`${badge} nepřečtených`}>
+            {badge}
+          </span>
+        ) : null}
       </Link>
     );
   };
@@ -44,6 +52,7 @@ export function DashboardNav({
     <aside className="lg:sticky lg:top-24 lg:self-start">
       <nav className="flex gap-1 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible" aria-label="Navigace v přehledu">
         {isTutor ? TUTOR_LINKS.map((l) => item(l.href, l.label, l.icon)) : item("/dashboard", "Přehled", "🏠")}
+        {item("/dashboard/zpravy", "Zprávy", "💬", unread)}
         {tutors.length > 0 && (
           <>
             <p className="hidden px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-ink-faint lg:block">Moje výuka</p>

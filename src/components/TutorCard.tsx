@@ -33,7 +33,11 @@ export function TutorCard({ tutor }: { tutor: PublicTutor }) {
             <span className="text-ink-faint">Ceník na profilu</span>
           )}
         </span>
-        {hasTrial && <span className="badge bg-brand-100 text-brand-800">Zkušební lekce</span>}
+        {tutor.full ? (
+          <span className="badge bg-slate-100 text-ink-faint">Plná kapacita</span>
+        ) : (
+          hasTrial && <span className="badge bg-brand-100 text-brand-800">Zkušební lekce</span>
+        )}
       </div>
     </Link>
   );

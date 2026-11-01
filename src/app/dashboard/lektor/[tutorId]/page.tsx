@@ -9,9 +9,10 @@ import { SlotPicker } from "@/components/SlotPicker";
 import { SubmitButton } from "@/components/SubmitButton";
 import { getCreditSummary } from "@/lib/credits";
 import { db } from "@/lib/db";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { requireUser } from "@/lib/session";
 import { getAvailableSlots } from "@/lib/slots";
+import { cardPaymentsAvailable } from "@/lib/stripe";
 
 export default async function StudentTutorPage({ params, searchParams }: { params: { tutorId: string }; searchParams: Record<string, string | undefined> }) {
   const user = await requireUser();
@@ -28,75 +29,127 @@ export default async function StudentTutorPage({ params, searchParams }: { param
   });
   if (!enrollment) notFound();
   const tutor = enrollment.tutor;
+  const archived = Boolean(enrollment.archivedAt) || tutor.suspended;
 
-  const [credits, lessons] = await Promise.all([
+  const [credits, lessons, review, completedCount, trials, pending, unread] = await Promise.all([
     getCreditSummary(tutor.id, user.id),
     db.lesson.findMany({ where: { tutorId: tutor.id, studentId: user.id }, orderBy: { startsAt: "desc" } }),
-  ]);
-  const [review, completedCount] = await Promise.all([
     db.review.findUnique({ where: { tutorId_studentId: { tutorId: tutor.id, studentId: user.id } } }),
     db.lesson.count({ where: { tutorId: tutor.id, studentId: user.id, status: "COMPLETED" } }),
+    db.purchase.count({
+      where: { tutorId: tutor.id, studentId: user.id, package: { isTrial: true }, OR: [{ status: "PAID" }, { status: "PENDING", source: "TRANSFER" }] },
+    }),
+    db.purchase.findMany({ where: { tutorId: tutor.id, studentId: user.id, status: "PENDING", source: "TRANSFER" }, orderBy: { createdAt: "desc" } }),
+    db.message.count({ where: { enrollmentId: enrollment.id, senderId: { not: user.id }, readAt: null } }),
   ]);
-  const hadTrial = await db.purchase.count({ where: { tutorId: tutor.id, studentId: user.id, status: "PAID", package: { isTrial: true } } });
-  const nextPurchase = credits.purchases.find((p) => p.remaining > 0);
-  const slots = nextPurchase ? await getAvailableSlots(tutor.id, nextPurchase.durationMin) : [];
 
   const now = new Date();
   const upcoming = lessons.filter((l) => l.status === "SCHEDULED" && l.startsAt >= now).reverse();
   const history = lessons.filter((l) => !(l.status === "SCHEDULED" && l.startsAt >= now));
+  const cancelMs = tutor.cancelHours * 3600 * 1000;
+
+  // režim přesunu lekce: ?presunout=<lessonId>
+  const moving = searchParams.presunout ? upcoming.find((l) => l.id === searchParams.presunout && l.startsAt.getTime() - Date.now() > cancelMs) : undefined;
+  const nextPurchase = credits.purchases.find((p) => p.remaining > 0);
+  const slotDuration = moving ? Math.round((moving.endsAt.getTime() - moving.startsAt.getTime()) / 60000) : nextPurchase?.durationMin;
+  const slots = !archived && slotDuration ? await getAvailableSlots(tutor.id, slotDuration, { excludeLessonId: moving?.id }) : [];
+  const maxRepeat = nextPurchase ? Math.min(12, credits.purchases.filter((p) => p.durationMin === nextPurchase.durationMin).reduce((s, p) => s + p.remaining, 0)) : 1;
 
   return (
     <>
       {searchParams.zaplaceno && <Notice tone="success">Děkujeme za platbu! Lekce jsou připsané – vyberte si termín. (Pokud se ještě nezobrazují, obnovte za chvíli stránku.)</Notice>}
       {searchParams.zruseno && <Notice tone="warn">Platba byla zrušena.</Notice>}
       {searchParams.vitejte && <Notice tone="success">Pozvánka přijata. Vítejte!</Notice>}
-      {searchParams.chyba === "platby" && <Notice tone="error">Lektor zatím nemá aktivní přijímání plateb. Dejte mu prosím vědět.</Notice>}
+      {searchParams.presunuto && <Notice tone="success">Lekce je přesunutá. Poslali jsme vám aktualizovanou pozvánku do kalendáře.</Notice>}
+      {searchParams.chyba === "platby" && <Notice tone="error">Lektor zatím nemá aktivní platby kartou. Zkuste platbu převodem nebo mu dejte vědět.</Notice>}
+      {searchParams.chyba === "prevod" && <Notice tone="error">Lektor nepřijímá platby převodem.</Notice>}
       {searchParams.chyba === "storno" && <Notice tone="error">Lekci už nelze zrušit – lhůta pro storno ({tutor.cancelHours} h) uplynula. Kontaktujte prosím lektora.</Notice>}
       {searchParams.chyba === "zkusebni" && <Notice tone="error">Zkušební lekci u tohoto lektora už jste využili.</Notice>}
+      {archived && <Notice tone="warn">Výuka u tohoto lektora je pozastavená. Lekce teď nelze kupovat ani rezervovat – napište lektorovi.</Notice>}
+      {pending.map((p) => (
+        <Notice key={p.id} tone="info">
+          Čekáme na vaši platbu převodem za „{p.packageName}“ ({formatMoney(p.amountCents, p.currency)}, VS {p.variableSymbol}).{" "}
+          <Link href={`/dashboard/lektor/${tutor.id}/platba/${p.id}`} className="font-semibold underline">Zobrazit QR kód</Link>
+        </Notice>
+      ))}
 
       <PageHeader
         title={tutor.user.name ?? "Lektor"}
         description={tutor.headline}
-        actions={tutor.published ? <Link href={`/lektori/${tutor.slug}`} className="btn-ghost">Veřejný profil ↗</Link> : undefined}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/dashboard/zpravy/${enrollment.id}`} className="btn-secondary">💬 Zprávy{unread > 0 && <span className="rounded-full bg-brand-500 px-1.5 text-xs text-white">{unread}</span>}</Link>
+            {tutor.published && <Link href={`/lektori/${tutor.slug}`} className="btn-ghost">Veřejný profil ↗</Link>}
+          </div>
+        }
       />
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
-          <section className="card">
-            <h2 className="text-lg font-semibold">Rezervovat lekci</h2>
-            <div className="mt-4">
-              {nextPurchase ? (
-                <SlotPicker tutorId={tutor.id} slots={slots} timezone={user.timezone} durationMin={nextPurchase.durationMin} />
+          {!archived && (
+            <section className="card" id="rezervace">
+              {moving ? (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-lg font-semibold">Přesunout lekci z {formatDateTime(moving.startsAt, user.timezone)}</h2>
+                    <Link href={`/dashboard/lektor/${tutor.id}`} className="btn-ghost text-sm">Zrušit přesun</Link>
+                  </div>
+                  <div className="mt-4">
+                    <SlotPicker mode="reschedule" lessonId={moving.id} tutorId={tutor.id} slots={slots} timezone={user.timezone} durationMin={slotDuration!} />
+                  </div>
+                </>
               ) : (
-                <p className="text-sm text-ink-soft">Nemáte žádné volné lekce. Kupte si balíček vpravo a pak si vyberte termín.</p>
+                <>
+                  <h2 className="text-lg font-semibold">Rezervovat lekci</h2>
+                  <div className="mt-4">
+                    {nextPurchase ? (
+                      <SlotPicker mode="book" tutorId={tutor.id} slots={slots} timezone={user.timezone} durationMin={nextPurchase.durationMin} maxRepeat={maxRepeat} />
+                    ) : (
+                      <p className="text-sm text-ink-soft">Nemáte žádné volné lekce. Kupte si balíček vpravo a pak si vyberte termín.</p>
+                    )}
+                  </div>
+                </>
               )}
-            </div>
-          </section>
+            </section>
+          )}
 
           {upcoming.length > 0 && (
             <section className="card">
               <h2 className="text-lg font-semibold">Naplánované lekce</h2>
               <ul className="mt-4 divide-y divide-slate-100">
                 {upcoming.map((l) => {
-                  const canCancel = l.startsAt.getTime() - Date.now() > tutor.cancelHours * 3600 * 1000;
+                  const canChange = l.startsAt.getTime() - Date.now() > cancelMs;
                   return (
-                    <li key={l.id} className="flex flex-wrap items-center gap-3 py-3">
-                      <div className="flex-1">
-                        <p className="font-medium">{formatDateTime(l.startsAt, user.timezone)}</p>
+                    <li key={l.id} className="flex flex-wrap items-center gap-2 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">
+                          {formatDateTime(l.startsAt, user.timezone)}
+                          {l.seriesId && <span className="badge ml-2 bg-indigo-50 text-indigo-700">↻ pravidelná</span>}
+                        </p>
                         {l.topic && <p className="text-sm text-ink-faint">{l.topic}</p>}
                       </div>
                       {l.meetLink && <a href={l.meetLink} target="_blank" rel="noopener noreferrer" className="btn-primary px-3 py-1.5 text-xs">Připojit se</a>}
-                      {canCancel && (
-                        <form action={cancelLessonByStudent}>
-                          <input type="hidden" name="lessonId" value={l.id} />
-                          <SubmitButton className="btn-danger px-3 py-1.5 text-xs" pendingText="Ruším…">Zrušit</SubmitButton>
-                        </form>
+                      {canChange && (
+                        <>
+                          <Link href={`/dashboard/lektor/${tutor.id}?presunout=${l.id}#rezervace`} className="btn-secondary px-3 py-1.5 text-xs">Přesunout</Link>
+                          <form action={cancelLessonByStudent}>
+                            <input type="hidden" name="lessonId" value={l.id} />
+                            <SubmitButton className="btn-danger px-3 py-1.5 text-xs" pendingText="Ruším…">Zrušit</SubmitButton>
+                          </form>
+                          {l.seriesId && (
+                            <form action={cancelLessonByStudent}>
+                              <input type="hidden" name="lessonId" value={l.id} />
+                              <input type="hidden" name="series" value="1" />
+                              <SubmitButton className="btn-ghost px-3 py-1.5 text-xs text-red-600" pendingText="Ruším…">Zrušit i další</SubmitButton>
+                            </form>
+                          )}
+                        </>
                       )}
                     </li>
                   );
                 })}
               </ul>
-              <p className="mt-3 text-xs text-ink-faint">Lekci lze zrušit nejpozději {tutor.cancelHours} h předem, pak se vrátí do balíčku.</p>
+              <p className="mt-3 text-xs text-ink-faint">Lekci lze přesunout nebo zrušit nejpozději {tutor.cancelHours} h předem, zrušená se vrátí do balíčku.</p>
             </section>
           )}
 
@@ -135,9 +188,12 @@ export default async function StudentTutorPage({ params, searchParams }: { param
             {credits.purchases.length > 0 && (
               <ul className="mt-4 space-y-1.5 text-sm">
                 {credits.purchases.map((p) => (
-                  <li key={p.id} className="flex justify-between text-ink-soft">
-                    <span>{p.name}</span>
-                    <span>{p.used}/{p.total} vyčerpáno</span>
+                  <li key={p.id} className={`flex justify-between gap-2 ${p.expired ? "text-ink-faint line-through" : "text-ink-soft"}`}>
+                    <span>
+                      {p.name}
+                      {p.expiresAt && <span className="block text-xs">{p.expired ? "vypršelo" : "platí do"} {formatDate(p.expiresAt, user.timezone)}</span>}
+                    </span>
+                    <span className="whitespace-nowrap">{p.used}/{p.total}</span>
                   </li>
                 ))}
               </ul>
@@ -150,15 +206,16 @@ export default async function StudentTutorPage({ params, searchParams }: { param
               <ReviewForm tutorId={tutor.id} initial={review ? { rating: review.rating, comment: review.comment } : undefined} />
             </section>
           )}
-          <section className="card">
-            <h2 className="text-lg font-semibold">Koupit lekce</h2>
-            <PackageList
-              packages={tutor.packages.filter((p) => !(p.isTrial && hadTrial))}
-              tutorId={tutor.id}
-              loggedIn
-              returnTo={`/dashboard/lektor/${tutor.id}`}
-            />
-          </section>
+          {!archived && (
+            <section className="card">
+              <h2 className="text-lg font-semibold">Koupit lekce</h2>
+              <PackageList
+                packages={tutor.packages.filter((p) => !(p.isTrial && trials > 0))}
+                returnTo={`/dashboard/lektor/${tutor.id}`}
+                payment={{ card: cardPaymentsAvailable(tutor), transfer: Boolean(tutor.bankIban) }}
+              />
+            </section>
+          )}
         </aside>
       </div>
     </>

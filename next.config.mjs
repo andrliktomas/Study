@@ -1,5 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // přílohy zpráv do 5 MB
+    serverActions: { bodySizeLimit: "6mb" },
+    // fonty pro generování OG obrázků
+    outputFileTracingIncludes: {
+      "/**/opengraph-image*": ["./src/assets/fonts/**"],
+      "/sitemap.xml": ["./content/blog/**"],
+      "/blog/**": ["./content/blog/**"],
+    },
+  },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "lh3.googleusercontent.com" }],
   },

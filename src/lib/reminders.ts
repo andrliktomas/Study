@@ -1,8 +1,8 @@
 import { addHours } from "date-fns";
 import { db } from "./db";
 import { formatDateTime } from "./format";
-import { lessonIcs } from "./ics";
 import { sendMail } from "./mail";
+import { cleanupRateLimits } from "./rate-limit";
 import { absoluteUrl, site } from "./site";
 
 /** Pošle připomínku lekcím, které začínají během příštích 24 hodin a ještě připomínku nedostaly. */
@@ -40,21 +40,6 @@ export async function sendDueReminders() {
       await db.lesson.update({ where: { id: l.id }, data: { reminderSentAt: null } });
     }
   }
+  await cleanupRateLimits();
   return { checked: lessons.length, sent };
-}
-
-export function bookingConfirmationIcs(l: { id: string; startsAt: Date; endsAt: Date; meetLink: string | null }, tutorName: string, cancelled = false) {
-  return {
-    filename: "lekce.ics",
-    contentType: `text/calendar; charset=utf-8; method=${cancelled ? "CANCEL" : "PUBLISH"}`,
-    content: lessonIcs({
-      uid: l.id,
-      start: l.startsAt,
-      end: l.endsAt,
-      summary: `Lekce – ${tutorName}`,
-      description: `${site.name}${l.meetLink ? `\nOdkaz na hovor: ${l.meetLink}` : ""}`,
-      url: l.meetLink,
-      cancelled,
-    }),
-  };
 }

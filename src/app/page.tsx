@@ -1,16 +1,19 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Faq } from "@/components/Faq";
+import { QueryNotice } from "@/components/QueryNotice";
 import { TutorCard } from "@/components/TutorCard";
 import { LANGUAGES } from "@/lib/languages";
-import { platformFeePercent } from "@/lib/site";
+import { PLANS } from "@/lib/plans";
+import { formatMoney } from "@/lib/format";
 import { getPublishedTutors } from "@/lib/tutors";
 
 export const revalidate = 300;
 
 const STEPS = [
-  { t: "Lektor si založí profil", d: "Zdarma, za pár minut. Nastaví jazyky, ceník balíčků a časy, kdy učí." },
+  { t: "Lektor si založí profil", d: "Za pár minut, do 3 studentů zdarma. Nastaví jazyky, ceník balíčků a časy, kdy učí." },
   { t: "Pozve své studenty", d: "Pošle pozvánku e-mailem nebo odkazem. Noví studenti ho najdou i v katalogu." },
-  { t: "Student si koupí lekce", d: "Jednu, pět, deset nebo zkušební. Zaplatí kartou, peníze jdou rovnou lektorovi." },
+  { t: "Student si koupí lekce", d: "Jednu, pět, deset nebo zkušební. Zaplatí kartou nebo převodem s QR kódem – peníze jdou rovnou lektorovi." },
   { t: "Rezervace a přehled", d: "Student si vybere volný termín, lekce se propíše do Google Kalendáře i s odkazem na hovor." },
 ];
 
@@ -19,23 +22,29 @@ const FEATURES = [
   { icon: "🎟️", t: "Balíčky lekcí", d: "Prodávejte jednotlivé hodiny, zvýhodněné balíčky i zkušební lekce." },
   { icon: "📊", t: "Zbývající lekce", d: "Lektor i student vždy vidí, kolik lekcí zbývá a kolik se vyčerpalo." },
   { icon: "📝", t: "Poznámky z lekcí", d: "Co se probíralo a jaký je domácí úkol – přehledně u každé lekce." },
-  { icon: "💳", t: "Online platby", d: "Bezpečné platby kartou přes Stripe. Žádné faktury ani upomínky." },
-  { icon: "🌍", t: "Veřejný profil", d: "Inzerujte zdarma. Profil je optimalizovaný pro vyhledávače." },
+  { icon: "💳", t: "Platby bez provize", d: "Kartou na váš Stripe účet nebo převodem s QR kódem. Z lekcí si nebereme nic." },
+  { icon: "🌍", t: "Veřejný profil", d: "Inzerujte v katalogu. Profil je optimalizovaný pro vyhledávače." },
 ];
 
 export default async function Home() {
   const tutors = (await getPublishedTutors()).slice(0, 6);
-  const fee = platformFeePercent();
+  const paid = PLANS.filter((p) => p.priceCents > 0);
+  const free = PLANS[0];
 
   return (
     <>
+      <Suspense>
+        <div className="container-page pt-6 empty:hidden">
+          <QueryNotice param="ucet-smazan" tone="success" messages={{ "1": "Váš účet byl smazán. Děkujeme, že jste Lektorium vyzkoušeli." }} />
+        </div>
+      </Suspense>
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="bg-grid absolute inset-0 -z-10" aria-hidden />
         <div className="absolute -right-32 -top-32 -z-10 h-96 w-96 rounded-full bg-brand-200/50 blur-3xl" aria-hidden />
         <div className="container-page grid items-center gap-12 py-16 md:grid-cols-2 md:py-24">
           <div className="animate-fade-up">
-            <span className="chip">Zdarma pro lektory · platíte jen {fee} % z prodaných lekcí</span>
+            <span className="chip">Do {free.maxStudents} studentů zdarma · žádná provize z lekcí</span>
             <h1 className="mt-5 text-4xl font-extrabold leading-tight sm:text-5xl">
               Online výuka jazyků <span className="bg-gradient-to-r from-brand-500 to-brand-700 bg-clip-text text-transparent">bez chaosu</span> v tabulkách
             </h1>
@@ -118,9 +127,9 @@ export default async function Home() {
         <div className="mt-8">
           <Faq
             items={[
-              { q: "Kolik platforma stojí?", a: `Pro lektory i studenty je registrace a používání zdarma. Platforma si bere pouze provizi ${fee} % z ceny lekcí, které lektor skutečně prodá.` },
+              { q: "Kolik platforma stojí?", a: `Pro studenty nic. Lektoři platí měsíční předplatné podle počtu aktivních studentů: do ${free.maxStudents} studentů zdarma, pak od ${formatMoney(paid[0].priceCents)} měsíčně. Z ceny lekcí si nebereme žádnou provizi.` },
               { q: "Jak funguje propojení s Google Kalendářem?", a: "Lektor jedním kliknutím připojí svůj Google Kalendář. Obsazené časy se studentům nezobrazí a každá rezervovaná lekce se do kalendáře zapíše včetně odkazu na Google Meet. Student dostane pozvánku e-mailem." },
-              { q: "Kdy dostane lektor peníze?", a: "Platby probíhají přes Stripe. Peníze jdou přímo na účet lektora, provize platformy se strhne automaticky a výplata na bankovní účet probíhá podle nastavení Stripe (obvykle do několika dní)." },
+              { q: "Kdy dostane lektor peníze?", a: "Hned – platby jdou přímo lektorovi. Převodem rovnou na jeho bankovní účet (student zaplatí přes QR kód), kartou na jeho vlastní Stripe účet, odkud se peníze vyplácejí obvykle do několika dní." },
               { q: "Může student zrušit lekci?", a: "Ano, do lhůty, kterou si nastaví lektor (výchozí je 24 hodin předem). Lekce se mu v tom případě vrátí do balíčku." },
               { q: "Potřebuji speciální software na videohovory?", a: "Ne. Lekce mohou probíhat přes Google Meet, Zoom, Skype nebo jiný nástroj, který lektor používá." },
             ]}
@@ -133,7 +142,7 @@ export default async function Home() {
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 px-8 py-14 text-center text-white shadow-glow">
           <div className="absolute -left-10 -top-10 h-40 w-40 animate-float rounded-full bg-white/10" aria-hidden />
           <h2 className="text-3xl font-bold text-white sm:text-4xl">Učíte jazyky online?</h2>
-          <p className="mx-auto mt-3 max-w-xl text-brand-50">Založte si profil zdarma a převeďte své studenty na platformu ještě dnes.</p>
+          <p className="mx-auto mt-3 max-w-xl text-brand-50">Do 3 studentů zdarma a bez provize. Převeďte své studenty na platformu ještě dnes.</p>
           <Link href="/registrace?role=tutor" className="btn mt-8 bg-white px-6 py-3 text-base text-brand-700 hover:bg-brand-50">Začít zdarma</Link>
         </div>
       </section>

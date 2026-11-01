@@ -6,25 +6,42 @@ import { CreditBar, PageHeader } from "@/components/PageHeader";
 import { getCreditSummary } from "@/lib/credits";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
+import { studentCapacity } from "@/lib/plans";
 import { requireTutor } from "@/lib/session";
 import { absoluteUrl } from "@/lib/site";
 import { InviteForm } from "./InviteForm";
 
-export default async function StudentsPage() {
+export default async function StudentsPage({ searchParams }: { searchParams: { archiv?: string } }) {
   const { user, profile } = await requireTutor();
-  const [enrollments, invitations] = await Promise.all([
-    db.enrollment.findMany({ where: { tutorId: profile.id }, include: { student: true }, orderBy: { createdAt: "desc" } }),
+  const showArchived = searchParams.archiv === "1";
+  const [enrollments, invitations, capacity, archivedCount] = await Promise.all([
+    db.enrollment.findMany({
+      where: { tutorId: profile.id, archivedAt: showArchived ? { not: null } : null },
+      include: { student: true },
+      orderBy: { createdAt: "desc" },
+    }),
     db.invitation.findMany({ where: { tutorId: profile.id, acceptedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } }),
+    studentCapacity(profile.id),
+    db.enrollment.count({ where: { tutorId: profile.id, archivedAt: { not: null } } }),
   ]);
   const credits = await Promise.all(enrollments.map((e) => getCreditSummary(profile.id, e.studentId)));
 
   return (
     <>
-      <PageHeader title="Studenti" description={`${enrollments.length} studentů`} />
+      <PageHeader
+        title="Studenti"
+        description={<>Aktivní: <strong>{capacity.count} / {capacity.limit ?? "∞"}</strong> (tarif {capacity.plan.name}) · <Link href="/dashboard/predplatne" className="text-brand-600 hover:underline">změnit tarif</Link></>}
+      />
+      <div className="mb-5 inline-flex rounded-xl bg-brand-50 p-1 text-sm font-medium">
+        <Link href="/dashboard/studenti" className={`rounded-lg px-4 py-2 ${!showArchived ? "bg-white text-brand-700 shadow-soft" : "text-ink-soft hover:text-brand-700"}`}>Aktivní</Link>
+        <Link href="/dashboard/studenti?archiv=1" className={`rounded-lg px-4 py-2 ${showArchived ? "bg-white text-brand-700 shadow-soft" : "text-ink-soft hover:text-brand-700"}`}>Archiv ({archivedCount})</Link>
+      </div>
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div>
           {enrollments.length === 0 ? (
-            <div className="card text-center text-sm text-ink-faint">Zatím nemáte žádné studenty. Pošlete jim pozvánku →</div>
+            <div className="card text-center text-sm text-ink-faint">
+              {showArchived ? "Archiv je prázdný." : "Zatím nemáte žádné studenty. Pošlete jim pozvánku →"}
+            </div>
           ) : (
             <ul className="grid gap-4 md:grid-cols-2">
               {enrollments.map((e, i) => (
@@ -51,7 +68,14 @@ export default async function StudentsPage() {
           <div className="card">
             <h2 className="font-semibold">Pozvat studenta</h2>
             <p className="mt-1 text-sm text-ink-soft">Student dostane e-mail s odkazem. Po přijetí si u vás může kupovat lekce.</p>
-            <div className="mt-4"><InviteForm /></div>
+            {capacity.full ? (
+              <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Máte plnou kapacitu tarifu ({capacity.limit} studentů).{" "}
+                <Link href="/dashboard/predplatne" className="font-semibold underline">Navyšte tarif</Link> nebo archivujte neaktivní studenty.
+              </p>
+            ) : (
+              <div className="mt-4"><InviteForm /></div>
+            )}
           </div>
           {profile.published && (
             <div className="card">

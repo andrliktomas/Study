@@ -1,36 +1,39 @@
-// Pro produkci přepněte provider na "postgresql" a nastavte DATABASE_URL.
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 // ---------- Auth (NextAuth) ----------
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  passwordHash  String?
+  id              String    @id @default(cuid())
+  name            String?
+  email           String    @unique
+  emailVerified   DateTime?
+  image           String?
+  passwordHash    String?
   // "TUTOR" | "STUDENT" | "ADMIN"
-  role          String    @default("STUDENT")
-  timezone      String    @default("Europe/Prague")
+  role            String    @default("STUDENT")
+  timezone        String    @default("Europe/Prague")
   termsAcceptedAt DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  // účet byl smazán uživatelem – osobní údaje jsou anonymizované
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  tutorProfile  TutorProfile?
-  enrollments   Enrollment[]  @relation("StudentEnrollments")
-  purchases     Purchase[]    @relation("StudentPurchases")
-  lessons       Lesson[]      @relation("StudentLessons")
-  reviews       Review[]
+  accounts     Account[]
+  sessions     Session[]
+  tutorProfile TutorProfile?
+  enrollments  Enrollment[]  @relation("StudentEnrollments")
+  purchases    Purchase[]    @relation("StudentPurchases")
+  lessons      Lesson[]      @relation("StudentLessons")
+  reviews      Review[]
+  messages     Message[]
+  files        StoredFile[]
 }
 
 model Account {
@@ -60,6 +63,7 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Používá se i pro ověření e-mailu (identifier = e-mail, token = hash tokenu).
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -69,12 +73,18 @@ model VerificationToken {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   email     String
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+}
+
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
 }
 
 // ---------- Lektoři ----------
@@ -96,36 +106,60 @@ model TutorProfile {
   minNoticeHours  Int      @default(12)
   // do kolika hodin před lekcí může student zrušit bez ztráty lekce
   cancelHours     Int      @default(24)
-  stripeAccountId String?
-  stripeOnboarded Boolean  @default(false)
   // pozastavený administrátorem – nezobrazuje se v katalogu a nelze u něj nakupovat
   suspended       Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 
-  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reviews      Review[]
+  // Platby od studentů: vlastní Stripe účet lektora (Standard) a/nebo převod na účet
+  stripeAccountId String?
+  stripeOnboarded Boolean  @default(false)
+  bankIban        String?
+
+  // Předplatné platformy (tarif podle počtu studentů)
+  plan                 String    @default("FREE")
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  subscriptionStatus   String?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+
+  // Fakturační a daňové údaje (faktury za předplatné, hlášení DAC7)
+  legalName   String?
+  street      String?
+  cityName    String?
+  zip         String?
+  country     String  @default("CZ")
+  companyId   String?
+  vatId       String?
+  birthDate   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   packages     LessonPackage[]
   invitations  Invitation[]
   enrollments  Enrollment[]
   availability Availability[]
   purchases    Purchase[]
   lessons      Lesson[]
+  reviews      Review[]
 }
 
 model LessonPackage {
-  id          String   @id @default(cuid())
-  tutorId     String
-  name        String
-  description String   @default("")
-  lessonCount Int
-  durationMin Int      @default(60)
-  priceCents  Int
-  currency    String   @default("czk")
-  isTrial     Boolean  @default(false)
-  active      Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  tutorId      String
+  name         String
+  description  String   @default("")
+  lessonCount  Int
+  durationMin  Int      @default(60)
+  priceCents   Int
+  currency     String   @default("czk")
+  isTrial      Boolean  @default(false)
+  // platnost balíčku ve dnech od zaplacení (null = bez omezení)
+  validityDays Int?
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
 
   tutor     TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
   purchases Purchase[]
@@ -158,65 +192,77 @@ model Invitation {
 }
 
 model Enrollment {
-  id        String   @id @default(cuid())
-  tutorId   String
-  studentId String
+  id         String    @id @default(cuid())
+  tutorId    String
+  studentId  String
   // soukromá poznámka lektora o studentovi (úroveň, cíle…)
-  notes     String   @default("")
-  createdAt DateTime @default(now())
+  notes      String    @default("")
+  // archivovaný student se nepočítá do tarifu a nemůže kupovat ani rezervovat
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
 
-  tutor   TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
-  student User         @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
+  tutor    TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  student  User         @relation("StudentEnrollments", fields: [studentId], references: [id], onDelete: Cascade)
+  messages Message[]
 
   @@unique([tutorId, studentId])
 }
 
 model Purchase {
-  id               String    @id @default(cuid())
-  tutorId          String
-  studentId        String
-  packageId        String?
-  packageName      String
-  lessonsTotal     Int
-  durationMin      Int
-  amountCents      Int
-  platformFeeCents Int
-  currency         String
+  id                    String    @id @default(cuid())
+  tutorId               String
+  studentId             String
+  packageId             String?
+  packageName           String
+  lessonsTotal          Int
+  durationMin           Int
+  amountCents           Int
+  currency              String
   // "PENDING" | "PAID" | "REFUNDED" | "CANCELLED"
-  status           String    @default("PENDING")
-  // "STRIPE" = platba kartou, "MANUAL" = lektor připsal ručně (provize se dluží), "DEV" = simulace
-  source           String    @default("STRIPE")
-  note             String?
-  // u ručních nákupů: kdy lektor provizi platformě uhradil
-  feeSettledAt     DateTime?
-  stripeSessionId  String?   @unique
-  paidAt           DateTime?
-  createdAt        DateTime  @default(now())
+  status                String    @default("PENDING")
+  // "STRIPE" = kartou, "TRANSFER" = převodem (potvrzuje lektor), "MANUAL" = připsal lektor, "DEV" = simulace
+  source                String    @default("STRIPE")
+  note                  String?
+  variableSymbol        String?   @unique
+  stripeSessionId       String?   @unique
+  stripePaymentIntentId String?
+  paidAt                DateTime?
+  expiresAt             DateTime?
+  refundedLessons       Int       @default(0)
+  refundedCents         Int       @default(0)
+  refundedAt            DateTime?
+  createdAt             DateTime  @default(now())
 
   tutor   TutorProfile   @relation(fields: [tutorId], references: [id], onDelete: Cascade)
   student User           @relation("StudentPurchases", fields: [studentId], references: [id], onDelete: Cascade)
   package LessonPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
   lessons Lesson[]
+
+  @@index([tutorId, studentId])
 }
 
 model Lesson {
-  id            String   @id @default(cuid())
-  tutorId       String
-  studentId     String
-  purchaseId    String
-  startsAt      DateTime
-  endsAt        DateTime
+  id             String    @id @default(cuid())
+  tutorId        String
+  studentId      String
+  purchaseId     String
+  // pravidelné lekce mají společné seriesId
+  seriesId       String?
+  startsAt       DateTime
+  endsAt         DateTime
   // "SCHEDULED" | "COMPLETED" | "CANCELLED" | "NO_SHOW"
-  status        String   @default("SCHEDULED")
-  topic         String   @default("")
+  status         String    @default("SCHEDULED")
+  topic          String    @default("")
   // co se na lekci probíralo
-  notes         String   @default("")
-  homework      String   @default("")
-  googleEventId String?
-  meetLink      String?
+  notes          String    @default("")
+  homework       String    @default("")
+  googleEventId  String?
+  meetLink       String?
+  // pořadí změn (pro aktualizaci .ics v kalendáři studenta)
+  sequence       Int       @default(0)
   reminderSentAt DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   tutor    TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
   student  User         @relation("StudentLessons", fields: [studentId], references: [id], onDelete: Cascade)
@@ -224,6 +270,7 @@ model Lesson {
 
   @@index([tutorId, startsAt])
   @@index([studentId, startsAt])
+  @@index([seriesId])
 }
 
 model Review {
@@ -240,4 +287,39 @@ model Review {
   student User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([tutorId, studentId])
+}
+
+// ---------- Zprávy a soubory ----------
+
+model Message {
+  id           String    @id @default(cuid())
+  enrollmentId String
+  senderId     String
+  body         String    @default("")
+  fileId       String?   @unique
+  // kdy zprávu přečetl druhý účastník
+  readAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  enrollment Enrollment  @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  sender     User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  file       StoredFile? @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([enrollmentId, createdAt])
+}
+
+// Soubory ukládáme přímo v databázi (avatary, materiály do 5 MB) – bez nutnosti dalšího úložiště.
+model StoredFile {
+  id        String   @id @default(cuid())
+  ownerId   String
+  // "AVATAR" | "ATTACHMENT"
+  kind      String
+  filename  String
+  mimeType  String
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  message Message?
 }

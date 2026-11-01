@@ -9,17 +9,28 @@ import { JsonLd } from "@/components/JsonLd";
 import { PackageList } from "@/components/PackageList";
 import { db } from "@/lib/db";
 import { languageByCode, parseList } from "@/lib/languages";
-import { absoluteUrl } from "@/lib/site";
-import { getCurrentUser } from "@/lib/session";
+import { effectivePlan } from "@/lib/plans";
+import { absoluteImage, absoluteUrl } from "@/lib/site";
+import { cardPaymentsAvailable } from "@/lib/stripe";
+import { publicTutorWhere } from "@/lib/tutors";
+import { Suspense } from "react";
+import { QueryNotice } from "@/components/QueryNotice";
+
+// Profil se generuje staticky a obnovuje při změně (revalidatePath) nebo nejpozději za 10 minut.
+export const revalidate = 600;
+export const dynamicParams = true;
+export async function generateStaticParams() {
+  return [];
+}
 
 async function getTutor(slug: string) {
   return db.tutorProfile.findFirst({
-    where: { slug, published: true, suspended: false },
+    where: { slug, ...publicTutorWhere() },
     include: {
       user: { select: { name: true, image: true, timezone: true } },
       reviews: { where: { hidden: false }, include: { student: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 50 },
       packages: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { priceCents: "asc" }] },
-      _count: { select: { enrollments: true, lessons: { where: { status: "COMPLETED" } } } },
+      _count: { select: { enrollments: { where: { archivedAt: null } }, lessons: { where: { status: "COMPLETED" } } } },
     },
   });
 }
@@ -34,14 +45,15 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     title,
     description,
     alternates: { canonical: `/lektori/${t.slug}` },
-    openGraph: { title, description, type: "profile", images: t.user.image ? [t.user.image] : undefined },
+    openGraph: { title, description, type: "profile" },
   };
 }
 
 export default async function TutorPage({ params }: { params: { slug: string } }) {
   const t = await getTutor(params.slug);
   if (!t) notFound();
-  const user = await getCurrentUser();
+  const plan = effectivePlan(t);
+  const full = plan.maxStudents !== null && t._count.enrollments >= plan.maxStudents;
   const langs = parseList(t.languages).map((c) => languageByCode(c)).filter((l) => l !== undefined);
   const ratingCount = t.reviews.length;
   const ratingAvg = ratingCount ? t.reviews.reduce((s, r) => s + r.rating, 0) / ratingCount : 0;
@@ -59,28 +71,33 @@ export default async function TutorPage({ params }: { params: { slug: string } }
               name: t.user.name,
               jobTitle: "Lektor jazyků",
               description: t.bio,
-              image: t.user.image ?? undefined,
+              image: absoluteImage(t.user.image),
               url: absoluteUrl(`/lektori/${t.slug}`),
               knowsLanguage: langs.map((l) => l.name),
             },
             {
-              "@type": "Service",
-              name: `Online výuka – ${langs.map((l) => l.name).join(", ")}`,
-              serviceType: "Online výuka jazyků",
+              // Google zobrazuje hvězdičky hodnocení jen u podporovaných typů – Course mezi ně patří.
+              "@type": "Course",
+              "@id": absoluteUrl(`/lektori/${t.slug}#vyuka`),
+              name: `Online výuka – ${langs.map((l) => l.name).join(", ")} (${t.user.name})`,
+              description: t.headline || t.bio.slice(0, 200),
+              inLanguage: langs.map((l) => l.code),
               provider: { "@id": personId },
-              areaServed: "CZ",
+              educationalLevel: parseList(t.levels).join(", ") || undefined,
               offers: t.packages.map((p) => ({
                 "@type": "Offer",
                 name: p.name,
+                category: "Paid",
                 price: (p.priceCents / 100).toFixed(2),
                 priceCurrency: p.currency.toUpperCase(),
+                url: absoluteUrl(`/lektori/${t.slug}`),
               })),
               ...(ratingCount > 0
                 ? {
-                    aggregateRating: { "@type": "AggregateRating", ratingValue: ratingAvg.toFixed(1), reviewCount: ratingCount, bestRating: 5 },
+                    aggregateRating: { "@type": "AggregateRating", ratingValue: ratingAvg.toFixed(1), reviewCount: ratingCount, bestRating: 5, worstRating: 1 },
                     review: t.reviews.slice(0, 10).map((r) => ({
                       "@type": "Review",
-                      reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5 },
+                      reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
                       author: { "@type": "Person", name: firstNameInitial(r.student.name) },
                       datePublished: r.createdAt.toISOString().slice(0, 10),
                       reviewBody: r.comment || undefined,
@@ -91,6 +108,15 @@ export default async function TutorPage({ params }: { params: { slug: string } }
           ],
         }}
       />
+      <Suspense>
+        <QueryNotice
+          messages={{
+            kapacita: "Lektor má plnou kapacitu a momentálně nepřijímá nové studenty.",
+            archiv: "Výuka u tohoto lektora je pozastavená. Napište mu prosím.",
+            vlastni: "Nemůžete si koupit vlastní balíček.",
+          }}
+        />
+      </Suspense>
       <Breadcrumbs items={[{ name: "Domů", href: "/" }, { name: "Lektoři", href: "/lektori" }, { name: t.user.name ?? "Lektor", href: `/lektori/${t.slug}` }]} />
 
       <div className="mt-6 grid gap-8 lg:grid-cols-3">
@@ -153,7 +179,16 @@ export default async function TutorPage({ params }: { params: { slug: string } }
           <div className="card">
             <h2 className="text-xl font-semibold">Ceník lekcí</h2>
             <p className="mt-1 text-sm text-ink-soft">Lekce probíhají online přes videohovor.</p>
-            <PackageList packages={t.packages} tutorId={t.id} loggedIn={Boolean(user)} returnTo={`/lektori/${t.slug}`} />
+            {full && (
+              <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                Lektor má momentálně plnou kapacitu a nové studenty nepřijímá. Stávající studenti si lekce kupují normálně.
+              </p>
+            )}
+            <PackageList
+              packages={t.packages}
+              returnTo={`/lektori/${t.slug}`}
+              payment={{ card: cardPaymentsAvailable(t), transfer: Boolean(t.bankIban) }}
+            />
           </div>
         </aside>
       </div>

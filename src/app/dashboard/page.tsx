@@ -6,7 +6,9 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { getCreditSummary } from "@/lib/credits";
 import { db } from "@/lib/db";
 import { formatDateTime, formatMoney } from "@/lib/format";
+import { effectivePlan } from "@/lib/plans";
 import { requireUser } from "@/lib/session";
+import { canAcceptPayments } from "@/lib/stripe";
 
 export default async function DashboardHome({ searchParams }: { searchParams: Record<string, string | undefined> }) {
   const user = await requireUser();
@@ -15,6 +17,7 @@ export default async function DashboardHome({ searchParams }: { searchParams: Re
   return (
     <>
       {searchParams.chyba === "pozvanka" && <Notice tone="error">Pozvánka je neplatná nebo vypršela.</Notice>}
+      {searchParams["ucet-overen"] && <Notice tone="success">E-mail je ověřený. Vítejte!</Notice>}
       {profile ? <TutorOverview userId={user.id} tz={user.timezone} name={user.name} /> : null}
       <StudentOverview userId={user.id} tz={user.timezone} isTutor={Boolean(profile)} offerTutor={searchParams["stat-se-lektorem"] === "1"} />
     </>
@@ -24,8 +27,18 @@ export default async function DashboardHome({ searchParams }: { searchParams: Re
 async function TutorOverview({ userId, tz, name }: { userId: string; tz: string; name: string | null }) {
   const profile = await db.tutorProfile.findUniqueOrThrow({
     where: { userId },
-    include: { _count: { select: { enrollments: true, packages: true, availability: true } } },
+    include: {
+      _count: {
+        select: {
+          enrollments: { where: { archivedAt: null } },
+          packages: { where: { active: true } },
+          availability: true,
+          purchases: { where: { status: "PENDING", source: "TRANSFER" } },
+        },
+      },
+    },
   });
+  const plan = effectivePlan(profile);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const [upcoming, revenue, pendingNotes] = await Promise.all([
     db.lesson.findMany({
@@ -36,7 +49,7 @@ async function TutorOverview({ userId, tz, name }: { userId: string; tz: string;
     }),
     db.purchase.aggregate({
       where: { tutorId: profile.id, status: "PAID", paidAt: { gte: monthStart } },
-      _sum: { amountCents: true, platformFeeCents: true },
+      _sum: { amountCents: true, refundedCents: true },
     }),
     db.lesson.count({ where: { tutorId: profile.id, status: "SCHEDULED", endsAt: { lt: new Date() } } }),
   ]);
@@ -45,12 +58,13 @@ async function TutorOverview({ userId, tz, name }: { userId: string; tz: string;
     { done: profile.published, label: "Vyplnit a zveřejnit profil", href: "/dashboard/profil" },
     { done: profile._count.packages > 0, label: "Nastavit balíčky lekcí", href: "/dashboard/balicky" },
     { done: profile._count.availability > 0, label: "Nastavit, kdy učíte", href: "/dashboard/dostupnost" },
-    { done: profile.stripeOnboarded, label: "Připojit výplaty (Stripe)", href: "/dashboard/vyplaty" },
+    { done: canAcceptPayments(profile), label: "Nastavit platby (převod nebo karta)", href: "/dashboard/platby" },
     { done: profile.calendarSync, label: "Připojit Google Kalendář", href: "/dashboard/nastaveni" },
     { done: profile._count.enrollments > 0, label: "Pozvat prvního studenta", href: "/dashboard/studenti" },
   ];
   const todo = checklist.filter((c) => !c.done);
-  const net = (revenue._sum.amountCents ?? 0) - (revenue._sum.platformFeeCents ?? 0);
+  const net = (revenue._sum.amountCents ?? 0) - (revenue._sum.refundedCents ?? 0);
+  const full = plan.maxStudents !== null && profile._count.enrollments >= plan.maxStudents;
 
   return (
     <section>
@@ -76,9 +90,21 @@ async function TutorOverview({ userId, tz, name }: { userId: string; tz: string;
           </ul>
         </div>
       )}
+      {profile._count.purchases > 0 && (
+        <Notice tone="info">
+          {profile._count.purchases === 1 ? "1 student čeká" : `${profile._count.purchases} studentů čeká`} na potvrzení platby převodem.{" "}
+          <Link href="/dashboard/platby" className="font-semibold underline">Zkontrolovat platby</Link>
+        </Notice>
+      )}
+      {full && (
+        <Notice tone="warn">
+          Máte plnou kapacitu tarifu {plan.name} ({plan.maxStudents} studentů) – noví studenti se k vám nemohou zapsat.{" "}
+          <Link href="/dashboard/predplatne" className="font-semibold underline">Navýšit tarif</Link>
+        </Notice>
+      )}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Stat label="Studentů" value={profile._count.enrollments} />
-        <Stat label="Tržby tento měsíc" value={formatMoney(net)} hint="po odečtení provize platformy" />
+        <Stat label="Aktivní studenti" value={`${profile._count.enrollments} / ${plan.maxStudents ?? "∞"}`} hint={`tarif ${plan.name}`} />
+        <Stat label="Tržby tento měsíc" value={formatMoney(net)} hint="bez provize – vše je vaše" />
         <Stat label="Lekce k doplnění" value={pendingNotes} hint="proběhlé lekce bez uzavření" />
       </div>
       <div className="card mt-6">

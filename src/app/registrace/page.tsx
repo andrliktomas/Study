@@ -49,7 +49,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: { r
           <Divider />
         </>
       )}
-      <RegisterForm role={role} callbackUrl={role === "tutor" ? "/dashboard/profil" : callbackUrl} defaultEmail={searchParams.email} />
+      <RegisterForm role={role} callbackUrl={callbackUrl} defaultEmail={searchParams.email} />
     </AuthCard>
   );
 }

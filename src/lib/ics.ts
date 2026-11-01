@@ -8,8 +8,20 @@ function esc(s: string) {
   return s.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
 }
 
-/** Jednoduchá událost iCalendar – student si ji přidá do libovolného kalendáře (Google, Apple, Outlook). */
-export function lessonIcs(opts: { uid: string; start: Date; end: Date; summary: string; description: string; url?: string | null; cancelled?: boolean }) {
+/**
+ * Událost iCalendar – student si ji přidá do libovolného kalendáře (Google, Apple, Outlook).
+ * Stejné UID + vyšší SEQUENCE = aktualizace existující události (přesun, zrušení).
+ */
+export function lessonIcs(opts: {
+  uid: string;
+  start: Date;
+  end: Date;
+  summary: string;
+  description: string;
+  url?: string | null;
+  sequence?: number;
+  cancelled?: boolean;
+}) {
   const host = new URL(site.url).hostname;
   return [
     "BEGIN:VCALENDAR",
@@ -18,6 +30,7 @@ export function lessonIcs(opts: { uid: string; start: Date; end: Date; summary: 
     `METHOD:${opts.cancelled ? "CANCEL" : "PUBLISH"}`,
     "BEGIN:VEVENT",
     `UID:${opts.uid}@${host}`,
+    `SEQUENCE:${opts.sequence ?? 0}`,
     `DTSTAMP:${icsDate(new Date())}`,
     `DTSTART:${icsDate(opts.start)}`,
     `DTEND:${icsDate(opts.end)}`,
@@ -33,4 +46,25 @@ export function lessonIcs(opts: { uid: string; start: Date; end: Date; summary: 
     "END:VEVENT",
     "END:VCALENDAR",
   ].join("\r\n");
+}
+
+export function lessonIcsAttachment(
+  l: { id: string; startsAt: Date; endsAt: Date; meetLink: string | null; sequence: number },
+  tutorName: string,
+  cancelled = false,
+) {
+  return {
+    filename: "lekce.ics",
+    contentType: `text/calendar; charset=utf-8; method=${cancelled ? "CANCEL" : "PUBLISH"}`,
+    content: lessonIcs({
+      uid: l.id,
+      start: l.startsAt,
+      end: l.endsAt,
+      summary: `Lekce – ${tutorName}`,
+      description: `${site.name}${l.meetLink ? `\nOdkaz na hovor: ${l.meetLink}` : ""}`,
+      url: l.meetLink,
+      sequence: l.sequence,
+      cancelled,
+    }),
+  };
 }

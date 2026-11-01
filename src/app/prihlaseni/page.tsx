@@ -16,7 +16,7 @@ const ERRORS: Record<string, string> = {
   default: "Přihlášení se nepodařilo. Zkuste to prosím znovu.",
 };
 
-export default async function LoginPage({ searchParams }: { searchParams: { callbackUrl?: string; error?: string } }) {
+export default async function LoginPage({ searchParams }: { searchParams: { callbackUrl?: string; error?: string; overeno?: string; email?: string } }) {
   const callbackUrl = safeCallbackUrl(searchParams.callbackUrl);
   if (await getServerSession(authOptions)) redirect(callbackUrl);
   const error = searchParams.error ? ERRORS[searchParams.error] ?? ERRORS.default : undefined;
@@ -27,13 +27,14 @@ export default async function LoginPage({ searchParams }: { searchParams: { call
       subtitle={<>Nemáte účet? <Link href={`/registrace?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="font-medium text-brand-600 hover:underline">Zaregistrujte se</Link></>}
     >
       {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+      {searchParams.overeno && <p role="status" className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">E-mail je ověřený. Teď se můžete přihlásit.</p>}
       {googleEnabled && (
         <>
           <GoogleButton callbackUrl={callbackUrl} />
           <Divider />
         </>
       )}
-      <LoginForm callbackUrl={callbackUrl} />
+      <LoginForm callbackUrl={callbackUrl} defaultEmail={searchParams.email} />
     </AuthCard>
   );
 }

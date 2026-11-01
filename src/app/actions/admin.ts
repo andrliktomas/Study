@@ -24,13 +24,6 @@ export async function setReviewHidden(formData: FormData) {
   revalidatePath(`/lektori/${r.tutor.slug}`);
 }
 
-export async function settleFee(formData: FormData) {
-  await requireAdmin();
-  const ids = formData.getAll("purchaseId").map(String);
-  await db.purchase.updateMany({ where: { id: { in: ids }, source: "MANUAL", feeSettledAt: null }, data: { feeSettledAt: new Date() } });
-  revalidatePath("/admin", "layout");
-}
-
 export async function setAdminRole(formData: FormData) {
   const me = await requireAdmin();
   const userId = String(formData.get("userId"));

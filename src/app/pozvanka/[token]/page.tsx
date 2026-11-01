@@ -9,7 +9,7 @@ import { getCurrentUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Pozvánka", robots: { index: false } };
 
-export default async function InvitationPage({ params }: { params: { token: string } }) {
+export default async function InvitationPage({ params, searchParams }: { params: { token: string }; searchParams: { chyba?: string } }) {
   const inv = await db.invitation.findUnique({
     where: { token: params.token },
     include: { tutor: { include: { user: true } } },
@@ -26,6 +26,11 @@ export default async function InvitationPage({ params }: { params: { token: stri
 
   return (
     <AuthCard title="Pozvánka do výuky">
+      {searchParams.chyba === "kapacita" && (
+        <p role="alert" className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Lektor má teď plnou kapacitu svého tarifu. Dejte mu prosím vědět – jakmile ji navýší, pozvánku můžete přijmout.
+        </p>
+      )}
       <div className="flex items-center gap-4 rounded-xl bg-brand-50 p-4">
         <Avatar name={inv.tutor.user.name} image={inv.tutor.user.image} size={52} />
         <div>

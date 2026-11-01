@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/JsonLd";
@@ -26,7 +27,10 @@ export const metadata: Metadata = {
   },
   twitter: { card: "summary_large_image", title: site.name, description: site.description },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } : undefined,
 };
+
+const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN;
 
 export const viewport: Viewport = { themeColor: "#14b8b8", width: "device-width", initialScale: 1 };
 
@@ -61,6 +65,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             ],
           }}
         />
+        {plausibleDomain && (
+          // Plausible: měření návštěvnosti bez cookies – nevyžaduje cookie lištu
+          <Script defer data-domain={plausibleDomain} src="https://plausible.io/js/script.js" strategy="afterInteractive" />
+        )}
         <Providers>
           <Header />
           <main className="flex-1">{children}</main>

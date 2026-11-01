@@ -2,10 +2,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 
-export function MobileMenu({ nav, loggedIn }: { nav: { href: string; label: string }[]; loggedIn: boolean }) {
+export function MobileMenu({ nav }: { nav: { href: string; label: string }[] }) {
   const [open, setOpen] = useState(false);
+  const { data: session } = useSession();
+  const loggedIn = Boolean(session);
   const pathname = usePathname();
   useEffect(() => setOpen(false), [pathname]);
 
@@ -33,6 +35,7 @@ export function MobileMenu({ nav, loggedIn }: { nav: { href: string; label: stri
             <div className="my-2 h-px bg-slate-100" />
             {loggedIn ? (
               <>
+                {session?.user.role === "ADMIN" && <Link href="/admin" className="btn-ghost">Administrace</Link>}
                 <Link href="/dashboard" className="btn-primary">Můj přehled</Link>
                 <button className="btn-ghost" onClick={() => signOut({ callbackUrl: "/" })}>Odhlásit se</button>
               </>

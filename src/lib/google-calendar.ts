@@ -97,3 +97,14 @@ export async function deleteCalendarEvent(userId: string, eventId: string) {
     headers: { Authorization: `Bearer ${token}` },
   }).catch((e) => console.error("[google] smazání události selhalo", e));
 }
+
+export async function updateCalendarEvent(userId: string, eventId: string, ev: { start: Date; end: Date }) {
+  const token = await getCalendarToken(userId);
+  if (!token) return;
+  const res = await fetch(`${CAL_API}/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ start: { dateTime: ev.start.toISOString() }, end: { dateTime: ev.end.toISOString() } }),
+  });
+  if (!res.ok) console.error("[google] přesun události selhal", res.status, await res.text());
+}

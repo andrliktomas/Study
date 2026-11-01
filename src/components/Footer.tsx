@@ -29,6 +29,7 @@ export function Footer() {
             <li><Link href="/lektori" className="text-ink-soft hover:text-brand-600">Katalog lektorů</Link></li>
             <li><Link href="/pro-lektory" className="text-ink-soft hover:text-brand-600">Pro lektory</Link></li>
             <li><Link href="/cenik" className="text-ink-soft hover:text-brand-600">Ceník</Link></li>
+            <li><Link href="/blog" className="text-ink-soft hover:text-brand-600">Blog</Link></li>
             <li><Link href="/registrace?role=tutor" className="text-ink-soft hover:text-brand-600">Založit profil lektora</Link></li>
           </ul>
         </div>

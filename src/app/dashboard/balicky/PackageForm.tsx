@@ -5,7 +5,7 @@ import { savePackage } from "@/app/actions/tutor";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
 
-type Pkg = { id: string; name: string; description: string; lessonCount: number; durationMin: number; price: number; currency: string; isTrial: boolean };
+type Pkg = { id: string; name: string; description: string; lessonCount: number; durationMin: number; price: number; currency: string; isTrial: boolean; validityDays: number | null };
 
 export function PackageForm({ pkg }: { pkg?: Pkg }) {
   const [state, action] = useFormState(savePackage, null);
@@ -51,6 +51,13 @@ export function PackageForm({ pkg }: { pkg?: Pkg }) {
       <div>
         <label htmlFor={`desc-${id}`} className="label">Popis (nepovinné)</label>
         <textarea id={`desc-${id}`} name="description" rows={2} defaultValue={pkg?.description} className="input" />
+      </div>
+      <div>
+        <label htmlFor={`valid-${id}`} className="label">Platnost balíčku</label>
+        <select id={`valid-${id}`} name="validityDays" defaultValue={pkg?.validityDays ?? 0} className="input">
+          <option value={0}>Bez omezení</option>
+          {[30, 60, 90, 180, 365].map((d) => <option key={d} value={d}>{d} dní od zaplacení</option>)}
+        </select>
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="isTrial" defaultChecked={pkg?.isTrial} className="h-4 w-4 rounded accent-brand-500" />

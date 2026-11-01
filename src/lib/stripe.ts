@@ -2,8 +2,8 @@ import Stripe from "stripe";
 
 export const stripeEnabled = Boolean(process.env.STRIPE_SECRET_KEY);
 
-// Bez Stripe klíče v developmentu (nebo s ALLOW_FAKE_PAYMENTS=1) platby simulujeme,
-// aby šla aplikace vyzkoušet end-to-end. V produkci se Stripe klíčem se nikdy nepoužije.
+// Bez Stripe klíče v developmentu (nebo s ALLOW_FAKE_PAYMENTS=1) platby i předplatné simulujeme,
+// aby šla aplikace vyzkoušet end-to-end. Se Stripe klíčem se simulace nikdy nepoužije.
 export const fakePaymentsEnabled =
   !stripeEnabled && (process.env.NODE_ENV !== "production" || process.env.ALLOW_FAKE_PAYMENTS === "1");
 
@@ -14,6 +14,11 @@ export function stripe() {
   return client;
 }
 
-export function platformFeeCents(amountCents: number, percent: number) {
-  return Math.round((amountCents * percent) / 100);
+/** Může lektor přijímat platby od studentů? (vlastní Stripe účet, bankovní účet, nebo simulace) */
+export function canAcceptPayments(profile: { stripeOnboarded: boolean; bankIban: string | null }) {
+  return profile.stripeOnboarded || Boolean(profile.bankIban) || fakePaymentsEnabled;
+}
+
+export function cardPaymentsAvailable(profile: { stripeOnboarded: boolean }) {
+  return fakePaymentsEnabled || (stripeEnabled && profile.stripeOnboarded);
 }

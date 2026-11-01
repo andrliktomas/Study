@@ -2,9 +2,11 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const db = new PrismaClient();
+const DAY = 864e5;
 
 async function main() {
   const passwordHash = await bcrypt.hash("heslo1234", 12);
+  const verified = { emailVerified: new Date(), termsAcceptedAt: new Date() };
 
   const tutor = await db.user.upsert({
     where: { email: "lektor@example.com" },
@@ -13,6 +15,7 @@ async function main() {
       email: "lektor@example.com",
       name: "Jana Nováková",
       passwordHash,
+      ...verified,
       role: "TUTOR",
       tutorProfile: {
         create: {
@@ -23,12 +26,22 @@ async function main() {
           levels: "A2,B1,B2,C1",
           city: "Brno",
           published: true,
+          // ukázkový účet z dokumentace ČNB – v praxi lektor zadá svůj
+          bankIban: "CZ6508000000192000145399",
+          plan: "START",
+          subscriptionStatus: "active",
+          currentPeriodEnd: new Date(Date.now() + 20 * DAY),
+          legalName: "Jana Nováková",
+          street: "Masarykova 12",
+          cityName: "Brno",
+          zip: "602 00",
+          companyId: "12345678",
           packages: {
             create: [
               { name: "Zkušební lekce", lessonCount: 1, durationMin: 30, priceCents: 25000, isTrial: true, sortOrder: 0 },
               { name: "Jedna lekce", lessonCount: 1, durationMin: 60, priceCents: 55000, sortOrder: 1 },
-              { name: "Balíček 5 lekcí", lessonCount: 5, durationMin: 60, priceCents: 250000, sortOrder: 2, description: "Ušetříte 250 Kč" },
-              { name: "Balíček 10 lekcí", lessonCount: 10, durationMin: 60, priceCents: 450000, sortOrder: 3, description: "Nejvýhodnější" },
+              { name: "Balíček 5 lekcí", lessonCount: 5, durationMin: 60, priceCents: 250000, sortOrder: 2, validityDays: 90, description: "Ušetříte 250 Kč" },
+              { name: "Balíček 10 lekcí", lessonCount: 10, durationMin: 60, priceCents: 450000, sortOrder: 3, validityDays: 180, description: "Nejvýhodnější" },
             ],
           },
           availability: {
@@ -47,6 +60,7 @@ async function main() {
       email: "lektor2@example.com",
       name: "Martin Svoboda",
       passwordHash,
+      ...verified,
       role: "TUTOR",
       tutorProfile: {
         create: {
@@ -56,6 +70,7 @@ async function main() {
           languages: "de,es",
           levels: "A1,A2,B1",
           published: true,
+          bankIban: "CZ6508000000192000145399",
           packages: {
             create: [
               { name: "Jedna lekce", lessonCount: 1, durationMin: 45, priceCents: 45000 },
@@ -68,58 +83,66 @@ async function main() {
     },
   });
 
-  await db.user.upsert({
-    where: { email: "admin@example.com" },
-    update: {},
-    create: { email: "admin@example.com", name: "Admin Platformy", passwordHash, role: "ADMIN", termsAcceptedAt: new Date() },
-  });
-
   const student = await db.user.upsert({
     where: { email: "student@example.com" },
     update: {},
-    create: { email: "student@example.com", name: "Petr Dvořák", passwordHash, role: "STUDENT" },
+    create: { email: "student@example.com", name: "Petr Dvořák", passwordHash, ...verified, role: "STUDENT" },
+  });
+
+  await db.user.upsert({
+    where: { email: "admin@example.com" },
+    update: {},
+    create: { email: "admin@example.com", name: "Admin Platformy", passwordHash, ...verified, role: "ADMIN" },
   });
 
   const tutorId = tutor.tutorProfile!.id;
-  await db.enrollment.upsert({
+  const enrollment = await db.enrollment.upsert({
     where: { tutorId_studentId: { tutorId, studentId: student.id } },
     update: {},
     create: { tutorId, studentId: student.id, notes: "Cíl: pohovor v angličtině do konce roku. Slabší gramatika časů." },
   });
 
-  const existing = await db.purchase.count({ where: { tutorId, studentId: student.id } });
-  if (existing === 0) {
+  if ((await db.purchase.count({ where: { tutorId, studentId: student.id } })) === 0) {
+    const pkg = await db.lessonPackage.findFirstOrThrow({ where: { tutorId, name: "Balíček 5 lekcí" } });
+    const paidAt = new Date(Date.now() - 14 * DAY);
     const purchase = await db.purchase.create({
       data: {
         tutorId,
         studentId: student.id,
-        packageName: "Balíček 5 lekcí",
+        packageId: pkg.id,
+        packageName: pkg.name,
         lessonsTotal: 5,
         durationMin: 60,
         amountCents: 250000,
-        platformFeeCents: 25000,
         currency: "czk",
         status: "PAID",
-        source: "DEV",
-        paidAt: new Date(Date.now() - 14 * 864e5),
+        source: "TRANSFER",
+        variableSymbol: "2026000001",
+        paidAt,
+        expiresAt: new Date(paidAt.getTime() + 90 * DAY),
       },
     });
-    const day = 864e5;
     await db.lesson.createMany({
       data: [
-        { start: -10, status: "COMPLETED", topic: "Úvodní lekce, rozřazení", notes: "Úroveň cca B1. Dobrá slovní zásoba, chyby v minulých časech.", homework: "Napsat 10 vět o minulém víkendu." },
-        { start: -3, status: "COMPLETED", topic: "Past simple vs. present perfect", notes: "Prošli jsme rozdíly, cvičení z učebnice str. 24.", homework: "Workbook str. 12–13" },
+        { start: -10, topic: "Úvodní lekce, rozřazení", notes: "Úroveň cca B1. Dobrá slovní zásoba, chyby v minulých časech.", homework: "Napsat 10 vět o minulém víkendu." },
+        { start: -3, topic: "Past simple vs. present perfect", notes: "Prošli jsme rozdíly, cvičení z učebnice str. 24.", homework: "Workbook str. 12–13" },
       ].map((l) => ({
         tutorId,
         studentId: student.id,
         purchaseId: purchase.id,
-        startsAt: new Date(Date.now() + l.start * day),
-        endsAt: new Date(Date.now() + l.start * day + 3600e3),
-        status: l.status,
+        startsAt: new Date(Date.now() + l.start * DAY),
+        endsAt: new Date(Date.now() + l.start * DAY + 3600e3),
+        status: "COMPLETED",
         topic: l.topic,
         notes: l.notes,
         homework: l.homework,
       })),
+    });
+    await db.message.createMany({
+      data: [
+        { enrollmentId: enrollment.id, senderId: tutor.id, body: "Ahoj Petře, posílám slíbená cvičení na minulé časy. Uvidíme se ve středu!", createdAt: new Date(Date.now() - 3 * DAY), readAt: new Date(Date.now() - 2 * DAY) },
+        { enrollmentId: enrollment.id, senderId: student.id, body: "Díky, mrknu na to. Můžeme příště probrat i small talk na pohovoru?", createdAt: new Date(Date.now() - 2 * DAY) },
+      ],
     });
   }
 

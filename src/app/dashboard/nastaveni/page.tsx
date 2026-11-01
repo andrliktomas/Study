@@ -5,7 +5,7 @@ import { googleEnabled } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hasCalendarScope } from "@/lib/google-calendar";
 import { requireUser } from "@/lib/session";
-import { AccountForm, ConnectCalendarButton, PasswordForm } from "./forms";
+import { AccountForm, AvatarForm, ConnectCalendarButton, DeleteAccountForm, PasswordForm } from "./forms";
 
 export default async function SettingsPage({ searchParams }: { searchParams: { chyba?: string } }) {
   const user = await requireUser();
@@ -20,6 +20,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: { c
       <PageHeader title="Nastavení" />
       {searchParams.chyba === "kalendar" && <Notice tone="error">Nejdřív připojte Google Kalendář (udělte přístup ke kalendáři).</Notice>}
       <div className="grid gap-6 lg:grid-cols-2">
+        <section className="card lg:col-span-2">
+          <h2 className="font-semibold">Profilová fotka</h2>
+          <p className="mt-1 text-sm text-ink-soft">{profile ? "Zobrazí se v katalogu a na vašem veřejném profilu – lektoři s fotkou mají výrazně víc zájemců." : "Uvidí ji vaši lektoři."}</p>
+          <div className="mt-4"><AvatarForm name={user.name} image={user.image} /></div>
+        </section>
         <section className="card">
           <h2 className="font-semibold">Účet</h2>
           <div className="mt-4"><AccountForm name={user.name ?? ""} email={user.email} timezone={user.timezone} /></div>
@@ -62,6 +67,21 @@ export default async function SettingsPage({ searchParams }: { searchParams: { c
             </div>
           </section>
         )}
+        <section className="card lg:col-span-2">
+          <h2 className="font-semibold">Vaše data</h2>
+          <p className="mt-1 text-sm text-ink-soft">Stáhněte si kopii všech údajů, které o vás evidujeme (formát JSON).</p>
+          <a href="/api/me/export" className="btn-secondary mt-4">Stáhnout moje data</a>
+        </section>
+
+        <section className="card border-red-100 lg:col-span-2">
+          <h2 className="font-semibold text-red-700">Smazat účet</h2>
+          <p className="mt-1 max-w-2xl text-sm text-ink-soft">
+            {profile
+              ? "Smaže se váš lektorský profil, balíčky, rozvrh a naplánované lekce (studenti dostanou e-mail) a zruší se předplatné. Nelze vrátit zpět."
+              : "Vaše osobní údaje se smažou, naplánované lekce se zruší. Záznamy o lekcích a platbách zůstanou lektorům bez vašeho jména. Nelze vrátit zpět."}
+          </p>
+          <div className="mt-4"><DeleteAccountForm email={user.email} hasPassword={Boolean(user.passwordHash)} /></div>
+        </section>
       </div>
     </>
   );
