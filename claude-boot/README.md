@@ -30,7 +30,7 @@ claude-boot/
 2. Do `.claude/settings.json` v tom repu přidej:
    ```json
    { "hooks": { "SessionStart": [ { "hooks": [ { "type": "command",
-     "command": "$CLAUDE_PROJECT_DIR/claude-boot/session-start.sh" } ] } ] } }
+     "command": "bash \"$CLAUDE_PROJECT_DIR/claude-boot/session-start.sh\"" } ] } ] } }
    ```
 3. Hook platí pro nové session, jakmile je změna na výchozí větvi repozitáře.
 
