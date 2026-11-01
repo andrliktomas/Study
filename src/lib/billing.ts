@@ -152,7 +152,8 @@ export async function changePlan(tutorId: string, planId: string, now = new Date
         const periodStartOfCurrent = addMonths(p.paidUntil!, -1);
         const totalMs = p.paidUntil!.getTime() - periodStartOfCurrent.getTime();
         const remainingMs = p.paidUntil!.getTime() - now.getTime();
-        const amount = Math.round(((targetPrice - basePrice) * remainingMs) / totalMs);
+        // doplatek zaokrouhlený na celé koruny / eura – u převodů se lépe zadává
+        const amount = Math.round(((targetPrice - basePrice) * remainingMs) / totalMs / 100) * 100;
         let invoice: Invoice | null = null;
         if (amount >= 100) {
           invoice = await issueInvoice(
