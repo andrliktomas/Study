@@ -4,7 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 // Přehled a administrace jen pro přihlášené. Přesměrování na přihlášení zůstává na aktuální doméně
 // (výchozí middleware next-auth by bez NEXTAUTH_URL na Vercelu skočil na adresu konkrétního nasazení).
 export async function middleware(req: NextRequest) {
-  const token = await getToken({ req });
+  // na HTTPS ukládá NextAuth session do cookie s prefixem __Secure- – čteme podle protokolu požadavku
+  const token = await getToken({ req, secureCookie: req.nextUrl.protocol === "https:" });
   if (token) return NextResponse.next();
   const url = req.nextUrl.clone();
   url.pathname = "/prihlaseni";

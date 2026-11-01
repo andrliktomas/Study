@@ -157,6 +157,9 @@ test("platba převodem s QR kódem a potvrzení lektorem", async () => {
 });
 
 test("pravidelné lekce: rezervace 3 týdnů najednou", async () => {
+  // druhý nabízený den – lekce jsou pak vždy víc než 24 h dopředu a student je smí přesunout i zrušit
+  // (první den může podle denní doby spadat do lhůty pro storno)
+  await student.locator("[role=listbox][aria-label='Den'] button").nth(1).click();
   await student.locator("[role=listbox][aria-label='Čas'] button").first().click();
   await student.getByLabel("Opakovat každý týden").check();
   await student.getByLabel("Počet týdnů").selectOption("3");
@@ -170,8 +173,11 @@ test("pravidelné lekce: rezervace 3 týdnů najednou", async () => {
 });
 
 test("student přesune lekci", async () => {
-  const before = await db.lesson.findFirstOrThrow({ where: { student: { email: studentEmail }, status: "SCHEDULED" }, orderBy: { startsAt: "asc" } });
-  await student.locator("a:has-text('Přesunout')").first().click();
+  // lekce méně než 24 h dopředu přesunout nejde (podle denní doby to může být i ta nejbližší) – bereme ID z odkazu
+  const link = student.locator("a:has-text('Přesunout')").first();
+  const lessonId = new URL((await link.getAttribute("href"))!, "http://x").searchParams.get("presunout")!;
+  const before = await db.lesson.findUniqueOrThrow({ where: { id: lessonId } });
+  await link.click();
   await expect(student.getByText(/Přesunout lekci z/)).toBeVisible();
   await student.locator("[role=listbox][aria-label='Den'] button").nth(1).click();
   await student.locator("[role=listbox][aria-label='Čas'] button").last().click();
