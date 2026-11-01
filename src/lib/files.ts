@@ -1,5 +1,6 @@
 export const AVATAR_MAX_BYTES = 600 * 1024;
-export const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+// Vercel omezuje velikost požadavku na 4,5 MB – necháváme rezervu na zbytek formuláře.
+export const ATTACHMENT_MAX_BYTES = 4 * 1024 * 1024;
 
 // Povolené typy příloh: dokumenty, obrázky, zvuk. Typ ověřujeme podle obsahu, ne podle přípony.
 const SIGNATURES: { mime: string; ext: string[]; check: (b: Buffer) => boolean }[] = [

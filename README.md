@@ -40,7 +40,7 @@ u EUR **SEPA QR / GiroCode** (EPC). Lektor připsání platby potvrdí jedním k
   záznam z lekce (téma, poznámky, úkol), přesun a rušení lekcí i celých sérií, přehled plateb, předplatné a fakturační údaje
 - **Student**: nákup převodem (QR, IBAN/SWIFT), rezervace jednotlivých i pravidelných (týdenních) lekcí, přesun a storno ve lhůtě,
   historie lekcí s poznámkami a úkoly, hodnocení lektora
-- **Zprávy**: konverzace lektor ↔ student s přílohami (PDF, Office, obrázky, audio do 5 MB, ověření typu podle obsahu),
+- **Zprávy**: konverzace lektor ↔ student s přílohami (PDF, Office, obrázky, audio do 4 MB, ověření typu podle obsahu),
   přehled sdílených materiálů, e-mailové upozornění
 - **Kalendář**: Google Kalendář lektora (obsazené časy se skryjí, lekce se zapíší s Google Meet), `.ics` pozvánky
   pro studenty (potvrzení, přesun, zrušení), připomínky 24 h předem
@@ -83,6 +83,23 @@ npm run build && npm run test:e2e   # Playwright: celý příběh lektora a stud
 
 E2E testy si samy připraví databázi `E2E_DATABASE_URL` (výchozí `lektorium_e2e`) a e-maily čtou z `MAIL_OUTBOX_DIR`.
 Vlastní Chromium lze předat přes `PLAYWRIGHT_CHROMIUM_EXECUTABLE`. Vše běží v GitHub Actions (`.github/workflows/ci.yml`).
+
+## Nasazení ukázky na Vercel (bez SMTP a dalších služeb)
+
+1. **Databáze** – na [neon.tech](https://neon.tech) založte zdarma projekt (region *Frankfurt*) a zkopírujte connection string
+   (s vypnutým „Connection pooling“).
+2. **Vercel** – na [vercel.com](https://vercel.com) *Add New → Project* → importujte tento repozitář a do *Environment Variables* vložte:
+   | Proměnná | Hodnota |
+   |---|---|
+   | `DATABASE_URL` | connection string z Neonu |
+   | `NEXTAUTH_SECRET` | náhodný řetězec (`openssl rand -base64 32`) |
+   | `DEMO_MODE` | `1` – e-maily se neodesílají, najdete je na `/demo/posta`; web se neindexuje |
+   | `SEED_DEMO` | `1` – při buildu nahraje testovací účty a data |
+3. **Deploy** – build sám spustí migrace (`npm run vercel-build`). Přihlaste se jako `lektor@example.com`, `student@example.com`
+   nebo `admin@example.com` (heslo `heslo1234`), nebo se zaregistrujte – ověřovací e-mail je v demo schránce.
+
+Funkce běží v regionu Frankfurt (`vercel.json`), aby byly blízko databáze. Pro ostrý provoz `DEMO_MODE` a `SEED_DEMO` smažte
+(testovací účty se známým heslem pak z databáze odstraňte) a nastavte SMTP a další proměnné níže.
 
 ## Konfigurace pro produkci
 

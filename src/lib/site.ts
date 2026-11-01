@@ -3,9 +3,15 @@ export const site = {
   tagline: "Platforma pro online lektory jazyků",
   description:
     "Najděte si online lektora angličtiny, němčiny, španělštiny a dalších jazyků. Lektoři zde spravují studenty, prodávají balíčky lekcí a plánují hodiny přes Google Kalendář – bez provize z lekcí.",
-  url: (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, ""),
+  url: (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")
+  ).replace(/\/$/, ""),
   locale: "cs_CZ",
 };
+
+/** Ukázková verze: e-maily se neodesílají (jsou na /demo/posta), web se neindexuje, nahoře je lišta s testovacími účty. */
+export const demoMode = process.env.DEMO_MODE === "1";
 
 export function absoluteUrl(path = "/") {
   return `${site.url}${path.startsWith("/") ? path : `/${path}`}`;

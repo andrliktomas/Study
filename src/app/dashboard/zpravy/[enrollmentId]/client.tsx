@@ -51,7 +51,7 @@ export function Composer({ enrollmentId }: { enrollmentId: string }) {
           📎 {fileName ?? "Přiložit soubor"}
           <input type="file" name="file" accept={ATTACHMENT_ACCEPT} className="sr-only" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)} />
         </label>
-        <span className="hidden text-xs text-ink-faint sm:inline">Ctrl/⌘ + Enter odešle · max. 5 MB</span>
+        <span className="hidden text-xs text-ink-faint sm:inline">Ctrl/⌘ + Enter odešle · max. 4 MB</span>
         <SubmitButton pendingText="Odesílám…">Odeslat</SubmitButton>
       </div>
     </form>

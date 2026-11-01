@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    // přílohy zpráv do 5 MB
-    serverActions: { bodySizeLimit: "6mb" },
+    // přílohy zpráv do 4 MB (Vercel přijme požadavek max. 4,5 MB)
+    serverActions: { bodySizeLimit: "4.5mb" },
   },
   // fonty pro OG obrázky a články blogu se čtou ze souborů za běhu
   outputFileTracingIncludes: {

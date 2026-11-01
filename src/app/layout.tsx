@@ -5,7 +5,8 @@ import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/JsonLd";
 import { Providers } from "@/components/Providers";
-import { absoluteUrl, site } from "@/lib/site";
+import { DemoBanner } from "@/components/DemoBanner";
+import { absoluteUrl, demoMode, site } from "@/lib/site";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin", "latin-ext"], variable: "--font-sans", display: "swap" });
@@ -26,7 +27,9 @@ export const metadata: Metadata = {
     description: site.description,
   },
   twitter: { card: "summary_large_image", title: site.name, description: site.description },
-  robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
+  robots: demoMode
+    ? { index: false, follow: false }
+    : { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
   verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } : undefined,
 };
 
@@ -69,6 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           // Plausible: měření návštěvnosti bez cookies – nevyžaduje cookie lištu
           <Script defer data-domain={plausibleDomain} src="https://plausible.io/js/script.js" strategy="afterInteractive" />
         )}
+        {demoMode && <DemoBanner />}
         <Providers>
           <Header />
           <main className="flex-1">{children}</main>

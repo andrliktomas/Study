@@ -384,3 +384,14 @@ model InvoiceCounter {
   year Int @id
   last Int @default(0)
 }
+
+// Demo režim (DEMO_MODE=1): e-maily se místo odeslání ukládají a zobrazují na /demo/posta.
+model DemoMail {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

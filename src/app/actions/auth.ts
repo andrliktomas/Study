@@ -43,7 +43,13 @@ const registerSchema = z.object({
 });
 
 const devHint = () =>
-  !mailConfigured && process.env.NODE_ENV !== "production" ? " (Vývojový režim: odkaz najdete ve výpisu serveru.)" : "";
+  mailConfigured
+    ? ""
+    : process.env.DEMO_MODE === "1"
+      ? " (Ukázková verze: e-mail najdete v demo schránce – odkaz je v liště nahoře.)"
+      : process.env.NODE_ENV !== "production"
+        ? " (Vývojový režim: odkaz najdete ve výpisu serveru.)"
+        : "";
 
 export async function register(_: FormState, formData: FormData): Promise<FormState> {
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));

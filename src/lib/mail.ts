@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import nodemailer, { type Transporter } from "nodemailer";
+import { db } from "./db";
 
 let transporter: Transporter | null = null;
 
@@ -23,6 +24,10 @@ export const mailConfigured = Boolean(process.env.SMTP_HOST);
 export async function sendMail(opts: Mail) {
   const t = getTransporter();
   if (!t) {
+    if (process.env.DEMO_MODE === "1") {
+      await db.demoMail.create({ data: { to: opts.to, subject: opts.subject, text: opts.text } });
+      return { delivered: false };
+    }
     console.info(`\n[mail] SMTP není nastaveno – e-mail by šel na ${opts.to}\nPředmět: ${opts.subject}\n${opts.text}\n`);
     // Pro automatické testy: MAIL_OUTBOX_DIR=… uloží každý e-mail jako JSON soubor.
     if (process.env.MAIL_OUTBOX_DIR) {
