@@ -71,7 +71,8 @@ export default async function SubscriptionPage(props: { searchParams: Promise<Re
             <div key={p.id} className={`card relative flex flex-col ${p.highlight ? "border-brand-300 shadow-glow" : ""} ${current ? "ring-2 ring-brand-400" : ""}`}>
               {p.highlight && <span className="badge absolute right-4 top-4 bg-brand-500 text-white">Oblíbený</span>}
               <h2 className="text-lg font-semibold">{p.name}</h2>
-              <p className="mt-2 text-3xl font-extrabold">{p.priceCents ? formatMoney(p.priceCents) : "0 Kč"}<span className="text-sm font-normal text-ink-faint"> / měsíc</span></p>
+              <p className="mt-2 whitespace-nowrap text-3xl font-extrabold">{p.priceCents ? formatMoney(p.priceCents) : "0 Kč"}</p>
+              <p className="text-sm text-ink-faint">měsíčně</p>
               <p className="mt-1 text-sm font-medium text-brand-700">{p.maxStudents ? `až ${p.maxStudents} aktivních studentů` : "neomezeně studentů"}</p>
               <div className="mt-auto pt-5">
                 {current ? (
@@ -96,8 +97,8 @@ export default async function SubscriptionPage(props: { searchParams: Promise<Re
       <section className="card mt-8">
         <h2 className="font-semibold">Fakturační a daňové údaje</h2>
         <p className="mt-1 max-w-2xl text-sm text-ink-soft">
-          Použijeme je na faktury za předplatné. Jako provozovatel platformy je ze zákona (směrnice EU DAC7) musíme jednou ročně
-          hlásit finanční správě spolu s přehledem vašich příjmů z lekcí přes platformu.
+          Použijeme je na faktury za předplatné. Jako provozovatel platformy můžeme být podle pravidel EU (DAC7) povinni jednou ročně
+          hlásit finanční správě tyto údaje spolu s přehledem vašich příjmů z lekcí sjednaných přes platformu.
         </p>
         <div className="mt-5">
           <BillingDetailsForm
