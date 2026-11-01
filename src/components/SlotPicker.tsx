@@ -1,6 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { bookLesson, rescheduleLessonByStudent } from "@/app/actions/student";
 import { pluralLessons } from "@/lib/format";
 import { FormMessage } from "./FormMessage";
@@ -15,7 +14,7 @@ type Props = { tutorId: string; slots: Slot[]; timezone: string; durationMin: nu
 
 export function SlotPicker(props: Props) {
   const { tutorId, slots, timezone, durationMin } = props;
-  const [state, action] = useFormState(props.mode === "book" ? bookLesson : rescheduleLessonByStudent, null);
+  const [state, action] = useActionState(props.mode === "book" ? bookLesson : rescheduleLessonByStudent, null);
   const dayFmt = useMemo(() => new Intl.DateTimeFormat("cs-CZ", { timeZone: timezone, weekday: "short", day: "numeric", month: "numeric" }), [timezone]);
   const keyFmt = useMemo(() => new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }), [timezone]);
   const timeFmt = useMemo(() => new Intl.DateTimeFormat("cs-CZ", { timeZone: timezone, hour: "2-digit", minute: "2-digit" }), [timezone]);

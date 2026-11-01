@@ -7,7 +7,8 @@ import { requireTutor } from "@/lib/session";
 import { stripeEnabled } from "@/lib/stripe";
 import { BillingDetailsForm } from "./BillingDetailsForm";
 
-export default async function SubscriptionPage({ searchParams }: { searchParams: Record<string, string | undefined> }) {
+export default async function SubscriptionPage(props: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const searchParams = await props.searchParams;
   const { user, profile } = await requireTutor();
   const plan = effectivePlan(profile);
   const count = await activeStudentCount(profile.id);

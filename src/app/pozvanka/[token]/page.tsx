@@ -9,7 +9,11 @@ import { getCurrentUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Pozvánka", robots: { index: false } };
 
-export default async function InvitationPage({ params, searchParams }: { params: { token: string }; searchParams: { chyba?: string } }) {
+export default async function InvitationPage(
+  props: { params: Promise<{ token: string }>; searchParams: Promise<{ chyba?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const inv = await db.invitation.findUnique({
     where: { token: params.token },
     include: { tutor: { include: { user: true } } },

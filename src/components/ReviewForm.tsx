@@ -1,12 +1,11 @@
 "use client";
-import { useState } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useState } from "react";
 import { submitReview } from "@/app/actions/student";
 import { FormMessage } from "./FormMessage";
 import { SubmitButton } from "./SubmitButton";
 
 export function ReviewForm({ tutorId, initial }: { tutorId: string; initial?: { rating: number; comment: string } }) {
-  const [state, action] = useFormState(submitReview, null);
+  const [state, action] = useActionState(submitReview, null);
   const [rating, setRating] = useState(initial?.rating ?? 0);
   const [hover, setHover] = useState(0);
   const shown = hover || rating;

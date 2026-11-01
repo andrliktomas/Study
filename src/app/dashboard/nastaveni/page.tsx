@@ -7,7 +7,8 @@ import { hasCalendarScope } from "@/lib/google-calendar";
 import { requireUser } from "@/lib/session";
 import { AccountForm, AvatarForm, ConnectCalendarButton, DeleteAccountForm, PasswordForm } from "./forms";
 
-export default async function SettingsPage({ searchParams }: { searchParams: { chyba?: string } }) {
+export default async function SettingsPage(props: { searchParams: Promise<{ chyba?: string }> }) {
+  const searchParams = await props.searchParams;
   const user = await requireUser();
   const [profile, google] = await Promise.all([
     db.tutorProfile.findUnique({ where: { userId: user.id } }),

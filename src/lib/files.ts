@@ -17,11 +17,13 @@ const SIGNATURES: { mime: string; ext: string[]; check: (b: Buffer) => boolean }
   { mime: "text/plain", ext: ["txt"], check: (b) => !b.includes(0) },
 ];
 
+/** Přípony, u kterých umíme ověřit obsah (musí odpovídat ATTACHMENT_EXTENSIONS v file-types.ts). */
+export const SUPPORTED_EXTENSIONS = SIGNATURES.flatMap((s) => s.ext);
+
 function isZip(b: Buffer) {
   return b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
 }
 
-export const ATTACHMENT_ACCEPT = SIGNATURES.map((s) => s.ext.map((e) => `.${e}`).join(",")).join(",");
 
 /** Vrátí MIME typ souboru, pokud obsah odpovídá povolenému typu a příponě. */
 export function detectMime(filename: string, data: Buffer, allowed: "image" | "attachment") {

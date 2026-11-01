@@ -1,12 +1,11 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { grantManualLessons, refundPurchase } from "@/app/actions/tutor";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
 
 export function ManualGrantForm({ studentId }: { studentId: string }) {
-  const [state, action] = useFormState(grantManualLessons, null);
+  const [state, action] = useActionState(grantManualLessons, null);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) ref.current?.reset();
@@ -48,7 +47,7 @@ export function ManualGrantForm({ studentId }: { studentId: string }) {
 }
 
 export function RefundButton({ purchaseId, lessons }: { purchaseId: string; lessons: number }) {
-  const [state, action] = useFormState(refundPurchase, null);
+  const [state, action] = useActionState(refundPurchase, null);
   const [confirming, setConfirming] = useState(false);
   if (state?.ok) return <div className="mt-2"><FormMessage state={state} /></div>;
   return (

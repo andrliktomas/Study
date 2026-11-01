@@ -1,13 +1,12 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useEffect, useState } from "react";
 import { register } from "@/app/actions/auth";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
 
 export function RegisterForm({ role, callbackUrl, defaultEmail }: { role: "tutor" | "student"; callbackUrl: string; defaultEmail?: string }) {
-  const [state, action] = useFormState(register, null);
+  const [state, action] = useActionState(register, null);
   const [timezone, setTimezone] = useState("Europe/Prague");
   useEffect(() => {
     try {

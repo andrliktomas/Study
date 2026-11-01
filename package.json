@@ -27,30 +27,38 @@
     "date-fns": "3.6.0",
     "date-fns-tz": "3.2.0",
     "marked": "14.1.4",
-    "next": "14.2.35",
-    "next-auth": "4.24.11",
-    "nodemailer": "6.9.16",
+    "next": "15.5.28",
+    "next-auth": "4.24.15",
+    "nodemailer": "10.3.1",
     "qrcode": "1.5.4",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "stripe": "17.7.0",
-    "zod": "3.23.8"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",
     "@types/bcryptjs": "2.4.6",
     "@types/node": "20.17.10",
-    "@types/nodemailer": "6.4.17",
+    "@types/nodemailer": "8.0.2",
     "@types/qrcode": "1.5.5",
-    "@types/react": "18.3.18",
-    "@types/react-dom": "18.3.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "autoprefixer": "10.4.20",
     "eslint": "8.57.1",
-    "eslint-config-next": "14.2.35",
-    "postcss": "8.4.49",
+    "eslint-config-next": "15.5.28",
+    "postcss": "8.5.32",
     "prisma": "5.22.0",
     "tailwindcss": "3.4.17",
-    "tsx": "4.19.2",
+    "tsx": "4.23.15",
     "typescript": "5.7.2"
+  },
+  "overrides": {
+    "next-auth": {
+      "nodemailer": "$nodemailer"
+    },
+    "next": {
+      "postcss": "$postcss"
+    }
   }
 }

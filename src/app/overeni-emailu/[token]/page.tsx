@@ -8,7 +8,11 @@ import { safeCallbackUrl } from "@/lib/safe-redirect";
 export const metadata: Metadata = { title: "Ověření e-mailu", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
-export default async function VerifyEmailPage({ params, searchParams }: { params: { token: string }; searchParams: { callbackUrl?: string } }) {
+export default async function VerifyEmailPage(
+  props: { params: Promise<{ token: string }>; searchParams: Promise<{ callbackUrl?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const email = await verifyEmail(params.token);
   if (email) {
     const cb = safeCallbackUrl(searchParams.callbackUrl, "/dashboard?ucet-overen=1");

@@ -11,7 +11,8 @@ const FILTERS = [
 ];
 const SRC: Record<string, string> = { STRIPE: "Karta", TRANSFER: "Převod", MANUAL: "Ručně", DEV: "Test" };
 
-export default async function AdminPayments({ searchParams }: { searchParams: { f?: string } }) {
+export default async function AdminPayments(props: { searchParams: Promise<{ f?: string }> }) {
+  const searchParams = await props.searchParams;
   const filter = FILTERS.find((x) => x.key === searchParams.f) ?? FILTERS[0];
   const purchases = await db.purchase.findMany({
     where: { status: { in: ["PAID", "REFUNDED"] }, ...(filter.source ? { source: filter.source } : {}) },

@@ -22,8 +22,8 @@ export function ipFromHeaders(h: { get(name: string): string | null }) {
 }
 
 /** IP adresa klienta v server actions. */
-export function clientIp() {
-  return ipFromHeaders(headers());
+export async function clientIp() {
+  return ipFromHeaders(await headers());
 }
 
 export const TOO_MANY = "Příliš mnoho pokusů. Zkuste to prosím za chvíli.";

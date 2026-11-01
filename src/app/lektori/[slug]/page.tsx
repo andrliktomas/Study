@@ -35,7 +35,8 @@ async function getTutor(slug: string) {
   });
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const t = await getTutor(params.slug);
   if (!t) return {};
   const langs = parseList(t.languages).map((c) => languageByCode(c)?.genitive).filter(Boolean).join(", ");
@@ -49,7 +50,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function TutorPage({ params }: { params: { slug: string } }) {
+export default async function TutorPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const t = await getTutor(params.slug);
   if (!t) notFound();
   const plan = effectivePlan(t);

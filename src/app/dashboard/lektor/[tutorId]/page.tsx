@@ -14,7 +14,11 @@ import { requireUser } from "@/lib/session";
 import { getAvailableSlots } from "@/lib/slots";
 import { cardPaymentsAvailable } from "@/lib/stripe";
 
-export default async function StudentTutorPage({ params, searchParams }: { params: { tutorId: string }; searchParams: Record<string, string | undefined> }) {
+export default async function StudentTutorPage(
+  props: { params: Promise<{ tutorId: string }>; searchParams: Promise<Record<string, string | undefined>> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const user = await requireUser();
   const enrollment = await db.enrollment.findUnique({
     where: { tutorId_studentId: { tutorId: params.tutorId, studentId: user.id } },

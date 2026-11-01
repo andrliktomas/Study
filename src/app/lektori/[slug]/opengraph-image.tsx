@@ -10,9 +10,10 @@ export const size = OG_SIZE;
 export const contentType = "image/png";
 export const revalidate = 3600;
 
-export default async function Image({ params }: { params: { slug: string } }) {
+export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const t = await db.tutorProfile.findFirst({
-    where: { slug: params.slug, ...publicTutorWhere() },
+    where: { slug, ...publicTutorWhere() },
     include: { user: { select: { name: true, image: true } }, packages: { where: { active: true, isTrial: false } }, reviews: { where: { hidden: false }, select: { rating: true } } },
   });
   const fonts = await ogFonts();

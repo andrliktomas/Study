@@ -1,11 +1,11 @@
 "use client";
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 import { saveBankAccount } from "@/app/actions/tutor";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
 
 export function BankAccountForm({ current }: { current: string }) {
-  const [state, action] = useFormState(saveBankAccount, null);
+  const [state, action] = useActionState(saveBankAccount, null);
   return (
     <form action={action} className="space-y-3">
       <FormMessage state={state} />

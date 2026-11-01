@@ -16,7 +16,10 @@ const ERRORS: Record<string, string> = {
   default: "Přihlášení se nepodařilo. Zkuste to prosím znovu.",
 };
 
-export default async function LoginPage({ searchParams }: { searchParams: { callbackUrl?: string; error?: string; overeno?: string; email?: string } }) {
+export default async function LoginPage(
+  props: { searchParams: Promise<{ callbackUrl?: string; error?: string; overeno?: string; email?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const callbackUrl = safeCallbackUrl(searchParams.callbackUrl);
   if (await getServerSession(authOptions)) redirect(callbackUrl);
   const error = searchParams.error ? ERRORS[searchParams.error] ?? ERRORS.default : undefined;

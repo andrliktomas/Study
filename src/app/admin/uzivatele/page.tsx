@@ -7,7 +7,8 @@ import { requireAdmin } from "@/lib/session";
 
 const ROLE: Record<string, string> = { ADMIN: "Admin", TUTOR: "Lektor", STUDENT: "Student" };
 
-export default async function AdminUsers({ searchParams }: { searchParams: { q?: string } }) {
+export default async function AdminUsers(props: { searchParams: Promise<{ q?: string }> }) {
+  const searchParams = await props.searchParams;
   const me = await requireAdmin();
   const q = searchParams.q?.trim();
   const users = await db.user.findMany({

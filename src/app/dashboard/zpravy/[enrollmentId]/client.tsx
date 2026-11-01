@@ -1,11 +1,10 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { sendMessage } from "@/app/actions/messages";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
-import { ATTACHMENT_ACCEPT } from "@/lib/files";
+import { ATTACHMENT_ACCEPT } from "@/lib/file-types";
 
 export function AutoRefresh({ seconds }: { seconds: number }) {
   const router = useRouter();
@@ -22,7 +21,7 @@ export function AutoRefresh({ seconds }: { seconds: number }) {
 }
 
 export function Composer({ enrollmentId }: { enrollmentId: string }) {
-  const [state, action] = useFormState(sendMessage, null);
+  const [state, action] = useActionState(sendMessage, null);
   const ref = useRef<HTMLFormElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   useEffect(() => {

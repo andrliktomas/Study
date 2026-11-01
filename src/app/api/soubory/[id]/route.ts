@@ -3,7 +3,8 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { participantWhere } from "@/lib/messages";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const file = await db.storedFile.findUnique({ where: { id: params.id }, include: { message: { select: { enrollmentId: true } } } });
   if (!file) return new Response("Nenalezeno", { status: 404 });
 

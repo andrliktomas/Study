@@ -24,7 +24,8 @@ function Linkified({ text }: { text: string }) {
   );
 }
 
-export default async function ThreadPage({ params }: { params: { enrollmentId: string } }) {
+export default async function ThreadPage(props: { params: Promise<{ enrollmentId: string }> }) {
+  const params = await props.params;
   const user = await requireUser();
   const conv = await getConversation(params.enrollmentId, user.id);
   if (!conv) notFound();

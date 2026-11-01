@@ -37,7 +37,7 @@ const registerSchema = z.object({
   email: z.string().trim().toLowerCase().email("Neplatný e-mail"),
   password,
   role: z.enum(["tutor", "student"]),
-  terms: z.literal("on", { errorMap: () => ({ message: "Pro registraci je nutný souhlas s obchodními podmínkami." }) }),
+  terms: z.literal("on", { error: "Pro registraci je nutný souhlas s obchodními podmínkami." }),
   timezone: timezone.catch("Europe/Prague"),
   callbackUrl: z.string().optional(),
 });
@@ -49,7 +49,7 @@ export async function register(_: FormState, formData: FormData): Promise<FormSt
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { name, email, role, callbackUrl } = parsed.data;
-  if (!(await rateLimit(`register:${clientIp()}`, 10, 3600))) return { error: TOO_MANY };
+  if (!(await rateLimit(`register:${await clientIp()}`, 10, 3600))) return { error: TOO_MANY };
 
   const done = {
     ok: true,
@@ -87,7 +87,7 @@ export async function register(_: FormState, formData: FormData): Promise<FormSt
 export async function resendVerification(_: FormState, formData: FormData): Promise<FormState> {
   const email = z.string().trim().toLowerCase().email().safeParse(formData.get("email"));
   if (!email.success) return { error: "Zadejte platný e-mail." };
-  if (!(await rateLimit(`verify-resend:${email.data}`, 3, 3600)) || !(await rateLimit(`verify-resend-ip:${clientIp()}`, 10, 3600))) {
+  if (!(await rateLimit(`verify-resend:${email.data}`, 3, 3600)) || !(await rateLimit(`verify-resend-ip:${await clientIp()}`, 10, 3600))) {
     return { error: TOO_MANY };
   }
   const user = await db.user.findUnique({ where: { email: email.data } });
@@ -116,7 +116,7 @@ export async function requestPasswordReset(_: FormState, formData: FormData): Pr
   const email = z.string().trim().toLowerCase().email().safeParse(formData.get("email"));
   if (!email.success) return { error: "Zadejte platný e-mail." };
   const generic = { message: "Pokud účet s tímto e-mailem existuje, poslali jsme na něj odkaz pro nastavení nového hesla." };
-  if (!(await rateLimit(`reset:${email.data}`, 3, 3600)) || !(await rateLimit(`reset-ip:${clientIp()}`, 20, 3600))) {
+  if (!(await rateLimit(`reset:${email.data}`, 3, 3600)) || !(await rateLimit(`reset-ip:${await clientIp()}`, 20, 3600))) {
     return { error: TOO_MANY };
   }
 

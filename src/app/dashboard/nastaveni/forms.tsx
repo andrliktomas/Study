@@ -1,7 +1,6 @@
 "use client";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { useEffect, useRef, useState } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { removeAvatar, deleteAccount, uploadAvatar } from "@/app/actions/account";
 import { changePassword, updateAccount } from "@/app/actions/auth";
 import { Avatar } from "@/components/Avatar";
@@ -12,7 +11,7 @@ const CAL_SCOPES = "openid email profile https://www.googleapis.com/auth/calenda
 const TIMEZONES = ["Europe/Prague", "Europe/Bratislava", "Europe/Vienna", "Europe/Berlin", "Europe/London", "Europe/Madrid", "Europe/Warsaw", "America/New_York", "America/Los_Angeles", "Asia/Tokyo"];
 
 export function AccountForm({ name, email, timezone }: { name: string; email: string; timezone: string }) {
-  const [state, action] = useFormState(updateAccount, null);
+  const [state, action] = useActionState(updateAccount, null);
   const { update } = useSession();
   useEffect(() => {
     if (state?.ok) update();
@@ -41,7 +40,7 @@ export function AccountForm({ name, email, timezone }: { name: string; email: st
 }
 
 export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
-  const [state, action] = useFormState(changePassword, null);
+  const [state, action] = useActionState(changePassword, null);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) ref.current?.reset();
@@ -148,7 +147,7 @@ export function AvatarForm({ name, image }: { name: string | null; image: string
 }
 
 export function DeleteAccountForm({ email, hasPassword }: { email: string; hasPassword: boolean }) {
-  const [state, action] = useFormState(deleteAccount, null);
+  const [state, action] = useActionState(deleteAccount, null);
   useEffect(() => {
     if (state?.ok) signOut({ callbackUrl: "/?ucet-smazan=1" });
   }, [state]);

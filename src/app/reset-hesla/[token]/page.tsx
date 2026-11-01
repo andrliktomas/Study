@@ -1,13 +1,14 @@
 "use client";
+import { use, useActionState } from "react";
 import Link from "next/link";
-import { useFormState } from "react-dom";
 import { resetPassword } from "@/app/actions/auth";
 import { AuthCard } from "@/components/AuthCard";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
 
-export default function ResetPasswordPage({ params }: { params: { token: string } }) {
-  const [state, action] = useFormState(resetPassword, null);
+export default function ResetPasswordPage(props: { params: Promise<{ token: string }> }) {
+  const params = use(props.params);
+  const [state, action] = useActionState(resetPassword, null);
   return (
     <AuthCard title="Nové heslo">
       {state?.ok ? (

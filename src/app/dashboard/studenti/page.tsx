@@ -11,7 +11,8 @@ import { requireTutor } from "@/lib/session";
 import { absoluteUrl } from "@/lib/site";
 import { InviteForm } from "./InviteForm";
 
-export default async function StudentsPage({ searchParams }: { searchParams: { archiv?: string } }) {
+export default async function StudentsPage(props: { searchParams: Promise<{ archiv?: string }> }) {
+  const searchParams = await props.searchParams;
   const { user, profile } = await requireTutor();
   const showArchived = searchParams.archiv === "1";
   const [enrollments, invitations, capacity, archivedCount] = await Promise.all([

@@ -15,7 +15,8 @@ const SOURCE: Record<string, { label: string; cls: string }> = {
   DEV: { label: "Test", cls: "bg-slate-100 text-ink-soft" },
 };
 
-export default async function PaymentsPage({ searchParams }: { searchParams: { navrat?: string; chyba?: string } }) {
+export default async function PaymentsPage(props: { searchParams: Promise<{ navrat?: string; chyba?: string }> }) {
+  const searchParams = await props.searchParams;
   const { user, profile: initialProfile } = await requireTutor();
   let profile = initialProfile;
 

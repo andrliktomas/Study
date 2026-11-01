@@ -14,7 +14,10 @@ export const metadata: Metadata = {
   alternates: { canonical: "/registrace" },
 };
 
-export default async function RegisterPage({ searchParams }: { searchParams: { role?: string; callbackUrl?: string; email?: string } }) {
+export default async function RegisterPage(
+  props: { searchParams: Promise<{ role?: string; callbackUrl?: string; email?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const role = searchParams.role === "tutor" ? "tutor" : "student";
   const callbackUrl = safeCallbackUrl(searchParams.callbackUrl);
   if (await getServerSession(authOptions)) redirect(callbackUrl);

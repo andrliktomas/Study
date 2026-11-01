@@ -1,6 +1,5 @@
 "use client";
-import { useState } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useState } from "react";
 import { updateTutorProfile } from "@/app/actions/tutor";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -12,7 +11,7 @@ type Initial = {
 };
 
 export function ProfileForm({ initial, baseUrl }: { initial: Initial; baseUrl: string }) {
-  const [state, action] = useFormState(updateTutorProfile, null);
+  const [state, action] = useActionState(updateTutorProfile, null);
   const [bio, setBio] = useState(initial.bio);
   const [slug, setSlug] = useState(initial.slug);
 

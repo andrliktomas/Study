@@ -5,7 +5,8 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { db } from "@/lib/db";
 import { effectivePlan } from "@/lib/plans";
 
-export default async function AdminTutors({ searchParams }: { searchParams: { q?: string } }) {
+export default async function AdminTutors(props: { searchParams: Promise<{ q?: string }> }) {
+  const searchParams = await props.searchParams;
   const q = searchParams.q?.trim();
   const tutors = await db.tutorProfile.findMany({
     where: q

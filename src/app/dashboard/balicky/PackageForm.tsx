@@ -1,6 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useEffect, useRef } from "react";
 import { savePackage } from "@/app/actions/tutor";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -8,7 +7,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 type Pkg = { id: string; name: string; description: string; lessonCount: number; durationMin: number; price: number; currency: string; isTrial: boolean; validityDays: number | null };
 
 export function PackageForm({ pkg }: { pkg?: Pkg }) {
-  const [state, action] = useFormState(savePackage, null);
+  const [state, action] = useActionState(savePackage, null);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok && !pkg) ref.current?.reset();

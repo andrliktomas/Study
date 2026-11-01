@@ -11,7 +11,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/lektori" },
 };
 
-export default async function TutorsPage({ searchParams }: { searchParams: { jazyk?: string; q?: string } }) {
+export default async function TutorsPage(props: { searchParams: Promise<{ jazyk?: string; q?: string }> }) {
+  const searchParams = await props.searchParams;
   const lang = searchParams.jazyk ? languageByCode(searchParams.jazyk) : undefined;
   const tutors = await getPublishedTutors({ language: lang?.code, q: searchParams.q });
 

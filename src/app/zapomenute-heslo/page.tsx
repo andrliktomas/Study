@@ -1,13 +1,13 @@
 "use client";
+import { useActionState } from "react";
 import Link from "next/link";
-import { useFormState } from "react-dom";
 import { requestPasswordReset } from "@/app/actions/auth";
 import { AuthCard } from "@/components/AuthCard";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
 
 export default function ForgotPasswordPage() {
-  const [state, action] = useFormState(requestPasswordReset, null);
+  const [state, action] = useActionState(requestPasswordReset, null);
   return (
     <AuthCard title="Zapomenuté heslo" subtitle="Pošleme vám odkaz pro nastavení nového hesla.">
       <form action={action} className="space-y-4">

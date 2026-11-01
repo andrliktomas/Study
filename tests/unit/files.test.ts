@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { detectMime, safeFilename } from "../../src/lib/files";
+import { ATTACHMENT_EXTENSIONS } from "../../src/lib/file-types";
+import { SUPPORTED_EXTENSIONS, detectMime, safeFilename } from "../../src/lib/files";
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]);
 const PDF = Buffer.from("%PDF-1.7\n...");
@@ -20,4 +21,8 @@ test("odmítne podvržený soubor", () => {
 test("bezpečný název souboru", () => {
   assert.equal(safeFilename("../../etc/passwd"), ".._.._etc_passwd");
   assert.equal(safeFilename("Úkol č. 3.pdf"), "Úkol č. 3.pdf");
+});
+
+test("seznam přípon v prohlížeči odpovídá kontrole na serveru", () => {
+  assert.deepEqual([...ATTACHMENT_EXTENSIONS].sort(), [...SUPPORTED_EXTENSIONS].sort());
 });

@@ -10,7 +10,8 @@ import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/format";
 import { requireUser } from "@/lib/session";
 
-export default async function TransferPaymentPage({ params }: { params: { tutorId: string; purchaseId: string } }) {
+export default async function TransferPaymentPage(props: { params: Promise<{ tutorId: string; purchaseId: string }> }) {
+  const params = await props.params;
   const user = await requireUser();
   const p = await db.purchase.findFirst({
     where: { id: params.purchaseId, studentId: user.id, tutorId: params.tutorId, source: "TRANSFER" },

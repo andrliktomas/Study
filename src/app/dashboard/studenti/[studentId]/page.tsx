@@ -11,7 +11,11 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { requireTutor } from "@/lib/session";
 import { ManualGrantForm, RefundButton } from "./forms";
 
-export default async function StudentDetailPage({ params, searchParams }: { params: { studentId: string }; searchParams: { chyba?: string; vraceno?: string; mena?: string; karta?: string } }) {
+export default async function StudentDetailPage(
+  props: { params: Promise<{ studentId: string }>; searchParams: Promise<{ chyba?: string; vraceno?: string; mena?: string; karta?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const { user, profile } = await requireTutor();
   const enrollment = await db.enrollment.findUnique({
     where: { tutorId_studentId: { tutorId: profile.id, studentId: params.studentId } },

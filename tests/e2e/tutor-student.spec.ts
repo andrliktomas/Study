@@ -123,7 +123,7 @@ test("platba převodem s QR kódem a potvrzení lektorem", async () => {
 
   await student.reload();
   expect(await creditsOf(student)).toBe("5");
-  await expect(student.getByText(/platí do/)).toBeVisible();
+  await expect(student.getByText(/platí do \d/).first()).toBeVisible();
   await lastMail(studentEmail, /Platba přijata/);
 });
 

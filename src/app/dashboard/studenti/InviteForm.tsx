@@ -1,13 +1,12 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useEffect, useRef } from "react";
 import { inviteStudent } from "@/app/actions/tutor";
 import { CopyButton } from "@/components/CopyButton";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
 
 export function InviteForm() {
-  const [state, action] = useFormState(inviteStudent, null);
+  const [state, action] = useActionState(inviteStudent, null);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) ref.current?.reset();

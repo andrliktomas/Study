@@ -3,15 +3,12 @@ const nextConfig = {
   experimental: {
     // přílohy zpráv do 5 MB
     serverActions: { bodySizeLimit: "6mb" },
-    // fonty pro generování OG obrázků
-    outputFileTracingIncludes: {
-      "/**/opengraph-image*": ["./src/assets/fonts/**"],
-      "/sitemap.xml": ["./content/blog/**"],
-      "/blog/**": ["./content/blog/**"],
-    },
   },
-  images: {
-    remotePatterns: [{ protocol: "https", hostname: "lh3.googleusercontent.com" }],
+  // fonty pro OG obrázky a články blogu se čtou ze souborů za běhu
+  outputFileTracingIncludes: {
+    "/**/opengraph-image*": ["./src/assets/fonts/**"],
+    "/sitemap.xml": ["./content/blog/**"],
+    "/blog/**": ["./content/blog/**"],
   },
   async headers() {
     return [

@@ -1,6 +1,5 @@
 "use client";
-import { useState } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useState } from "react";
 import { saveAvailability } from "@/app/actions/tutor";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -15,7 +14,7 @@ type Row = { key: number; weekday: number; start: string; end: string };
 let nextKey = 1;
 
 export function AvailabilityForm({ initial }: { initial: { weekday: number; start: number; end: number }[] }) {
-  const [state, action] = useFormState(saveAvailability, null);
+  const [state, action] = useActionState(saveAvailability, null);
   const [rows, setRows] = useState<Row[]>(() =>
     initial.map((r) => ({ key: nextKey++, weekday: r.weekday, start: minutesToHHMM(r.start), end: minutesToHHMM(r.end) })),
   );

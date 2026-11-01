@@ -2,8 +2,7 @@
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useFormState } from "react-dom";
+import { useActionState, useState } from "react";
 import { resendVerification } from "@/app/actions/auth";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -18,7 +17,7 @@ export function LoginForm({ callbackUrl, defaultEmail }: { callbackUrl: string; 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [email, setEmail] = useState(defaultEmail ?? "");
-  const [resendState, resendAction] = useFormState(resendVerification, null);
+  const [resendState, resendAction] = useActionState(resendVerification, null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

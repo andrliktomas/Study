@@ -1,5 +1,5 @@
 "use client";
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 import { saveBillingDetails } from "@/app/actions/billing";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -7,7 +7,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 type Initial = { legalName: string; street: string; cityName: string; zip: string; country: string; companyId: string; vatId: string; birthDate: string };
 
 export function BillingDetailsForm({ initial }: { initial: Initial }) {
-  const [state, action] = useFormState(saveBillingDetails, null);
+  const [state, action] = useActionState(saveBillingDetails, null);
   return (
     <form action={action} className="space-y-4">
       <FormMessage state={state} />

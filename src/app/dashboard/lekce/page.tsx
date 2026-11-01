@@ -10,7 +10,8 @@ const TABS = [
   { key: "historie", label: "Historie" },
 ];
 
-export default async function LessonsPage({ searchParams }: { searchParams: { tab?: string } }) {
+export default async function LessonsPage(props: { searchParams: Promise<{ tab?: string }> }) {
+  const searchParams = await props.searchParams;
   const { user, profile } = await requireTutor();
   const tab = TABS.some((t) => t.key === searchParams.tab) ? searchParams.tab! : "nadchazejici";
   const now = new Date();

@@ -10,7 +10,8 @@ import { effectivePlan } from "@/lib/plans";
 import { requireUser } from "@/lib/session";
 import { canAcceptPayments } from "@/lib/stripe";
 
-export default async function DashboardHome({ searchParams }: { searchParams: Record<string, string | undefined> }) {
+export default async function DashboardHome(props: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const searchParams = await props.searchParams;
   const user = await requireUser();
   const profile = await db.tutorProfile.findUnique({ where: { userId: user.id } });
 

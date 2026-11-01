@@ -1,11 +1,11 @@
 "use client";
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 import { updateLesson } from "@/app/actions/tutor";
 import { FormMessage } from "./FormMessage";
 import { SubmitButton } from "./SubmitButton";
 
 export function LessonEditor({ lesson }: { lesson: { id: string; status: string; topic: string; notes: string; homework: string } }) {
-  const [state, action] = useFormState(updateLesson, null);
+  const [state, action] = useActionState(updateLesson, null);
   return (
     <form action={action} className="space-y-3">
       <FormMessage state={state} />
