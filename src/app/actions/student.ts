@@ -9,12 +9,12 @@ import { formatDateTime, formatMoney, pluralLessons } from "@/lib/format";
 import { afterLessonMoved, afterLessonsBooked } from "@/lib/lesson-notify";
 import { sendMail } from "@/lib/mail";
 import { effectivePlan } from "@/lib/plans";
-import { cancelFutureLessons, markPurchasePaid, newVariableSymbol } from "@/lib/purchases";
+import { cancelFutureLessons, newVariableSymbol } from "@/lib/purchases";
 import { canReview } from "@/lib/reviews";
 import { requireUser } from "@/lib/session";
 import { absoluteUrl } from "@/lib/site";
 import { weeklyStarts } from "@/lib/slots";
-import { cardPaymentsAvailable, fakePaymentsEnabled, stripe } from "@/lib/stripe";
+import { accountFor, paymentReference } from "@/lib/payments";
 
 /**
  * Zapíše studenta k lektorovi. Noví studenti se počítají do tarifu lektora –
@@ -24,7 +24,7 @@ async function ensureEnrollment(tutorId: string, studentId: string): Promise<"ok
   return serializable(async (tx) => {
     const existing = await tx.enrollment.findUnique({ where: { tutorId_studentId: { tutorId, studentId } } });
     if (existing) return existing.archivedAt ? "archiv" : "ok";
-    const tutor = await tx.tutorProfile.findUniqueOrThrow({ where: { id: tutorId }, select: { plan: true, subscriptionStatus: true } });
+    const tutor = await tx.tutorProfile.findUniqueOrThrow({ where: { id: tutorId }, select: { plan: true, planActiveUntil: true } });
     const plan = effectivePlan(tutor);
     if (plan.maxStudents !== null) {
       const count = await tx.enrollment.count({ where: { tutorId, archivedAt: null } });
@@ -39,7 +39,7 @@ async function preparePurchase(formData: FormData) {
   const user = await requireUser();
   const pkg = await db.lessonPackage.findFirst({
     where: { id: String(formData.get("packageId")), active: true, tutor: { suspended: false } },
-    include: { tutor: { include: { user: true } } },
+    include: { tutor: { include: { user: true, bankAccounts: true } } },
   });
   if (!pkg) redirect("/lektori?chyba=balicek");
   const back = `/dashboard/lektor/${pkg.tutorId}`;
@@ -76,56 +76,25 @@ function purchaseData(pkg: { id: string; tutorId: string; name: string; lessonCo
   };
 }
 
-/** Platba kartou – peníze jdou přímo na Stripe účet lektora (platforma si nic nestrhává). */
-export async function startCheckout(formData: FormData) {
-  const { user, pkg, back } = await preparePurchase(formData);
-  if (!cardPaymentsAvailable(pkg.tutor)) redirect(`${back}?chyba=platby`);
-
-  if (fakePaymentsEnabled) {
-    const purchase = await db.purchase.create({ data: { ...purchaseData(pkg, user.id), source: "DEV" } });
-    await markPurchasePaid(purchase.id);
-    redirect(`${back}?zaplaceno=1`);
-  }
-
-  const purchase = await db.purchase.create({ data: { ...purchaseData(pkg, user.id), source: "STRIPE" } });
-  const session = await stripe().checkout.sessions.create(
-    {
-      mode: "payment",
-      customer_email: user.email,
-      locale: "cs",
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: pkg.currency,
-            unit_amount: pkg.priceCents,
-            product_data: { name: `${pkg.name} – ${pkg.tutor.user.name}`, description: `${pkg.lessonCount}× ${pkg.durationMin} min` },
-          },
-        },
-      ],
-      payment_intent_data: { metadata: { purchaseId: purchase.id } },
-      metadata: { purchaseId: purchase.id },
-      success_url: absoluteUrl(`${back}?zaplaceno=1`),
-      cancel_url: absoluteUrl(`${back}?zruseno=1`),
-    },
-    { stripeAccount: pkg.tutor.stripeAccountId! },
-  );
-  await db.purchase.update({ where: { id: purchase.id }, data: { stripeSessionId: session.id } });
-  redirect(session.url!);
-}
-
-/** Platba převodem – student dostane QR kód, lektor připsání potvrdí. */
+/** Platba převodem (i ze zahraničí) – student dostane platební údaje a QR kód, lektor připsání potvrdí. */
 export async function startTransfer(formData: FormData) {
   const { user, pkg, back } = await preparePurchase(formData);
-  if (!pkg.tutor.bankIban) redirect(`${back}?chyba=prevod`);
+  const account = accountFor(pkg.tutor.bankAccounts, pkg.currency);
+  if (!account) redirect(`${back}?chyba=prevod`);
 
   const purchase = await db.purchase.create({
     data: { ...purchaseData(pkg, user.id), source: "TRANSFER", variableSymbol: await newVariableSymbol() },
   });
+  const ref = paymentReference(purchase.variableSymbol!);
   await sendMail({
     to: pkg.tutor.user.email,
     subject: `Čeká na platbu převodem: ${user.name} – ${pkg.name}`,
-    text: `${user.name} (${user.email}) si objednal(a) „${pkg.name}“ za ${formatMoney(pkg.priceCents, pkg.currency)} a zaplatí převodem s variabilním symbolem ${purchase.variableSymbol}.\n\nAž peníze dorazí, potvrďte platbu:\n${absoluteUrl("/dashboard/platby")}`,
+    text: `${user.name} (${user.email}) si objednal(a) „${pkg.name}“ za ${formatMoney(pkg.priceCents, pkg.currency)} a zaplatí převodem (VS ${purchase.variableSymbol}, reference ${ref}).\n\nAž peníze dorazí, potvrďte platbu:\n${absoluteUrl("/dashboard/platby")}`,
+  });
+  await sendMail({
+    to: user.email,
+    subject: `Platební údaje: ${pkg.name} (${formatMoney(pkg.priceCents, pkg.currency)})`,
+    text: `Dobrý den,\n\nděkujeme za objednávku „${pkg.name}“ u lektora ${pkg.tutor.user.name}.\n\nČástka: ${formatMoney(pkg.priceCents, pkg.currency)}\nMajitel účtu: ${account.holderName}\n${account.iban ? `IBAN: ${account.iban}\n` : ""}${account.accountNumber ? `Číslo účtu: ${account.accountNumber}\n` : ""}${account.bic ? `SWIFT/BIC: ${account.bic}\n` : ""}Variabilní symbol: ${purchase.variableSymbol}\nReference / zpráva: ${ref}\n\nQR kód a všechny údaje najdete zde:\n${absoluteUrl(`${back}/platba/${purchase.id}`)}\n\nLekce se připíšou, jakmile lektor platbu potvrdí.`,
   });
   redirect(`${back}/platba/${purchase.id}`);
 }

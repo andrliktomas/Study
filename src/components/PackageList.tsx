@@ -5,11 +5,9 @@ import { BuyButtons } from "./BuyButtons";
 export function PackageList({
   packages,
   returnTo,
-  payment,
 }: {
   packages: LessonPackage[];
   returnTo: string;
-  payment: { card: boolean; transfer: boolean };
 }) {
   if (packages.length === 0) return <p className="mt-4 text-sm text-ink-faint">Lektor zatím nenastavil žádné balíčky.</p>;
   return (
@@ -30,7 +28,7 @@ export function PackageList({
               <p className="whitespace-nowrap text-lg font-bold text-brand-700">{formatMoney(p.priceCents, p.currency)}</p>
             </div>
             {p.description && <p className="mt-2 text-sm text-ink-soft">{p.description}</p>}
-            <BuyButtons packageId={p.id} returnTo={returnTo} payment={payment} />
+            <BuyButtons packageId={p.id} returnTo={returnTo} />
           </li>
         );
       })}

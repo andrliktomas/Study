@@ -1,3 +1,4 @@
+import { runBilling } from "@/lib/billing";
 import { sendDueReminders } from "@/lib/reminders";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,8 @@ export async function GET(req: Request) {
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const result = await sendDueReminders();
-  return Response.json(result);
+  // připomínky lekcí + fakturace předplatného (obnovy, upomínky, vypršení)
+  const reminders = await sendDueReminders();
+  const billing = await runBilling();
+  return Response.json({ ...reminders, billing });
 }

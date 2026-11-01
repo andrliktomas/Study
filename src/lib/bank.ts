@@ -68,3 +68,71 @@ export function spaydString(opts: { iban: string; amountCents: number; currency:
     `MSG:${msg}`,
   ].join("*");
 }
+
+/** SWIFT / BIC: 4 písmena banka, 2 země, 2 lokalita, volitelně 3 pobočka. */
+export function isValidBic(bic: string) {
+  return /^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(bic.replace(/\s+/g, "").toUpperCase());
+}
+
+function asciiOnly(text: string, max: number) {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7e]/g, "")
+    .trim()
+    .slice(0, max);
+}
+
+/**
+ * EPC QR kód (SEPA převod v EUR, „GiroCode“) – podporují ho banky v eurozóně.
+ * https://www.europeanpaymentscouncil.eu/document-library/guidance-documents/quick-response-code-guidelines-enable-data-capture-initiation
+ */
+export function epcString(opts: { iban: string; bic?: string | null; name: string; amountCents: number; reference: string }) {
+  return [
+    "BCD",
+    "002",
+    "1",
+    "SCT",
+    (opts.bic ?? "").replace(/\s+/g, "").toUpperCase(),
+    asciiOnly(opts.name, 70),
+    opts.iban,
+    `EUR${(opts.amountCents / 100).toFixed(2)}`,
+    "",
+    "",
+    asciiOnly(opts.reference, 140),
+  ].join("\n");
+}
+
+export type PaymentQr = { kind: "spayd" | "epc"; label: string; payload: string };
+
+/**
+ * QR kód pro platbu: CZK na český účet → QR Platba (SPAYD), EUR na IBAN → EPC/SEPA.
+ * Pro ostatní měny standardní QR neexistuje – student zadá údaje ručně.
+ */
+export function paymentQr(opts: {
+  iban: string | null;
+  bic?: string | null;
+  holderName: string;
+  currency: string;
+  amountCents: number;
+  vs: string;
+  message: string;
+}): PaymentQr | null {
+  if (!opts.iban) return null;
+  const currency = opts.currency.toLowerCase();
+  if (currency === "czk" && opts.iban.startsWith("CZ")) {
+    return {
+      kind: "spayd",
+      label: "QR Platba (české banky)",
+      payload: spaydString({ iban: opts.iban, amountCents: opts.amountCents, currency, vs: opts.vs, message: opts.message }),
+    };
+  }
+  if (currency === "eur") {
+    return {
+      kind: "epc",
+      label: "SEPA QR / GiroCode (banky v eurozóně)",
+      payload: epcString({ iban: opts.iban, bic: opts.bic, name: opts.holderName, amountCents: opts.amountCents, reference: `${opts.vs} ${opts.message}` }),
+    };
+  }
+  return null;
+}

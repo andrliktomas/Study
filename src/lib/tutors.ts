@@ -2,16 +2,20 @@ import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { effectivePlan } from "./plans";
 import { getRatings } from "./reviews";
-import { fakePaymentsEnabled } from "./stripe";
 
-/** Lektoři, kteří se smí ukazovat veřejně: zveřejnění, nepozastavení, s balíčkem a s nastavenou platbou. */
+/** Lektoři, kteří se smí ukazovat veřejně: zveřejnění, nepozastavení, s balíčkem a s bankovním účtem. */
 export function publicTutorWhere(): Prisma.TutorProfileWhereInput {
   return {
     published: true,
     suspended: false,
     packages: { some: { active: true } },
-    ...(fakePaymentsEnabled ? {} : { OR: [{ stripeOnboarded: true }, { bankIban: { not: null } }] }),
+    bankAccounts: { some: {} },
   };
+}
+
+/** Balíčky, které jde koupit = aktivní a lektor má účet v jejich měně. */
+export function purchasablePackages<P extends { currency: string; active: boolean }>(packages: P[], accounts: { currency: string }[]) {
+  return packages.filter((p) => p.active && accounts.some((a) => a.currency === p.currency));
 }
 
 export async function getPublishedTutors(opts: { language?: string; q?: string } = {}) {
@@ -23,6 +27,7 @@ export async function getPublishedTutors(opts: { language?: string; q?: string }
     include: {
       user: { select: { name: true, image: true } },
       packages: { where: { active: true }, orderBy: { priceCents: "asc" } },
+      bankAccounts: { select: { currency: true } },
       _count: { select: { enrollments: { where: { archivedAt: null } } } },
     },
     orderBy: { createdAt: "desc" },
@@ -32,6 +37,7 @@ export async function getPublishedTutors(opts: { language?: string; q?: string }
     const plan = effectivePlan(t);
     return {
       ...t,
+      packages: purchasablePackages(t.packages, t.bankAccounts),
       rating: ratings.get(t.id) ?? { avg: 0, count: 0 },
       full: plan.maxStudents !== null && t._count.enrollments >= plan.maxStudents,
     };
@@ -47,6 +53,8 @@ export type PublicTutor = Awaited<ReturnType<typeof getPublishedTutors>>[number]
 export function lowestLessonPrice(t: PublicTutor) {
   const regular = t.packages.filter((p) => !p.isTrial);
   if (regular.length === 0) return null;
-  const best = regular.reduce((min, p) => (p.priceCents / p.lessonCount < min.priceCents / min.lessonCount ? p : min));
+  // ceny v různých měnách neporovnáváme – bereme korunové balíčky, jinak měnu prvního balíčku
+  const currency = regular.some((p) => p.currency === "czk") ? "czk" : regular[0].currency;
+  const best = regular.filter((p) => p.currency === currency).reduce((min, p) => (p.priceCents / p.lessonCount < min.priceCents / min.lessonCount ? p : min));
   return { cents: Math.round(best.priceCents / best.lessonCount), currency: best.currency };
 }

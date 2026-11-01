@@ -38,17 +38,21 @@ export default function TermsPage() {
         <li>
           Lektor platí provozovateli měsíční předplatné podle zvoleného tarifu, který určuje nejvyšší počet aktivních (nearchivovaných)
           studentů:{" "}
-          {PLANS.map((p) => `${p.name} – ${p.priceCents ? `${formatMoney(p.priceCents)}/měsíc` : "zdarma"} (${p.maxStudents ? `až ${p.maxStudents} studentů` : "neomezeně"})`).join("; ")}.
+          {PLANS.map((p) => `${p.name} – ${p.prices.czk ? `${formatMoney(p.prices.czk, "czk")} / ${formatMoney(p.prices.eur, "eur")} měsíčně` : "zdarma"} (${p.maxStudents ? `až ${p.maxStudents} studentů` : "neomezeně"})`).join("; ")}.
           Ceny jsou konečné.
         </li>
         <li>Provozovatel si z plateb studentů za lekce nebere žádnou provizi.</li>
-        <li>Předplatné se platí kartou předem na každý měsíc a obnovuje se automaticky. Fakturu provozovatel vystaví elektronicky.</li>
+        <li>
+          Předplatné se platí bankovním převodem na základě faktury, předem na každý měsíc, v CZK nebo EUR. Při volbě vyššího tarifu je tarif
+          k dispozici ihned a faktura je splatná do 14 dnů; během zaplaceného období lektor doplácí jen poměrnou část ceny do konce období.
+          Fakturu na další období provozovatel vystaví 7 dní před jeho začátkem se splatností 7 dní od začátku období.
+        </li>
         <li>
           Lektor může tarif kdykoli zvýšit (doplatí poměrnou část) nebo snížit, pokud počet jeho aktivních studentů nepřesahuje limit nového
           tarifu. Předplatné lze zrušit kdykoli s účinností ke konci zaplaceného období; poté přechází účet na tarif Zdarma.
         </li>
         <li>
-          Pokud se platbu předplatného nepodaří strhnout, přechází účet po marném upozornění na tarif Zdarma. Stávající studenti mohou pokračovat
+          Není-li faktura uhrazena do splatnosti, přechází účet na tarif Zdarma. Stávající studenti mohou pokračovat
           ve výuce, noví se však nemohou zapsat, dokud lektor nemá dostatečný tarif.
         </li>
         <li>
@@ -61,8 +65,8 @@ export default function TermsPage() {
       <ul>
         <li>Cenu lekcí a balíčků určuje lektor. Prodávajícím je lektor.</li>
         <li>
-          Student platí buď kartou – platba jde přímo na platební účet lektora u společnosti Stripe – nebo bankovním převodem na účet lektora.
-          U převodu se lekce připíší poté, co lektor potvrdí přijetí platby.
+          Student platí bankovním převodem přímo na účet lektora, a to v měně, ve které lektor balíček nabízí. Lekce se připíší poté, co lektor
+          potvrdí přijetí platby. Poplatky banky za mezinárodní převod hradí plátce, není-li dohodnuto jinak.
         </li>
         <li>Zakoupené lekce může student čerpat rezervací volných termínů lektora. Má-li balíček omezenou platnost, je uvedena u balíčku před nákupem.</li>
         <li>Zkušební lekci lze u každého lektora zakoupit pouze jednou.</li>
@@ -79,7 +83,7 @@ export default function TermsPage() {
       <p>
         Student, který je spotřebitelem, může od smlouvy o poskytnutí lekcí odstoupit bez udání důvodu do 14 dnů od nákupu. Pokud však výslovně
         požádal o zahájení výuky před uplynutím této lhůty (rezervací lekce), hradí poměrnou část ceny za již čerpané lekce. Peníze za nevyčerpané
-        lekce vrací lektor – přes platformu (u plateb kartou automaticky na kartu) nebo převodem. Provozovatel poskytne součinnost na adrese{" "}
+        lekce vrací lektor převodem. Provozovatel poskytne součinnost na adrese{" "}
         {operator.email}.
       </p>
 

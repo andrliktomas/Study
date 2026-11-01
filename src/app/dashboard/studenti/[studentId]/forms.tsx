@@ -3,6 +3,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { grantManualLessons, refundPurchase } from "@/app/actions/tutor";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
+import { CURRENCIES } from "@/lib/currencies";
 
 export function ManualGrantForm({ studentId }: { studentId: string }) {
   const [state, action] = useActionState(grantManualLessons, null);
@@ -34,7 +35,7 @@ export function ManualGrantForm({ studentId }: { studentId: string }) {
         </div>
         <div>
           <label htmlFor="mg-cur" className="label">Měna</label>
-          <select id="mg-cur" name="currency" className="input"><option value="czk">CZK</option><option value="eur">EUR</option></select>
+          <select id="mg-cur" name="currency" className="input">{CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code.toUpperCase()}</option>)}</select>
         </div>
       </div>
       <div>

@@ -12,7 +12,7 @@ import { db } from "@/lib/db";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { requireUser } from "@/lib/session";
 import { getAvailableSlots } from "@/lib/slots";
-import { cardPaymentsAvailable } from "@/lib/stripe";
+import { purchasablePackages } from "@/lib/tutors";
 
 export default async function StudentTutorPage(
   props: { params: Promise<{ tutorId: string }>; searchParams: Promise<Record<string, string | undefined>> }
@@ -27,6 +27,7 @@ export default async function StudentTutorPage(
         include: {
           user: true,
           packages: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { priceCents: "asc" }] },
+          bankAccounts: { select: { currency: true } },
         },
       },
     },
@@ -65,8 +66,7 @@ export default async function StudentTutorPage(
       {searchParams.zruseno && <Notice tone="warn">Platba byla zrušena.</Notice>}
       {searchParams.vitejte && <Notice tone="success">Pozvánka přijata. Vítejte!</Notice>}
       {searchParams.presunuto && <Notice tone="success">Lekce je přesunutá. Poslali jsme vám aktualizovanou pozvánku do kalendáře.</Notice>}
-      {searchParams.chyba === "platby" && <Notice tone="error">Lektor zatím nemá aktivní platby kartou. Zkuste platbu převodem nebo mu dejte vědět.</Notice>}
-      {searchParams.chyba === "prevod" && <Notice tone="error">Lektor nepřijímá platby převodem.</Notice>}
+      {searchParams.chyba === "prevod" && <Notice tone="error">Lektor zatím nemá bankovní účet v této měně. Napište mu prosím.</Notice>}
       {searchParams.chyba === "storno" && <Notice tone="error">Lekci už nelze zrušit – lhůta pro storno ({tutor.cancelHours} h) uplynula. Kontaktujte prosím lektora.</Notice>}
       {searchParams.chyba === "zkusebni" && <Notice tone="error">Zkušební lekci u tohoto lektora už jste využili.</Notice>}
       {archived && <Notice tone="warn">Výuka u tohoto lektora je pozastavená. Lekce teď nelze kupovat ani rezervovat – napište lektorovi.</Notice>}
@@ -214,9 +214,8 @@ export default async function StudentTutorPage(
             <section className="card">
               <h2 className="text-lg font-semibold">Koupit lekce</h2>
               <PackageList
-                packages={tutor.packages.filter((p) => !(p.isTrial && trials > 0))}
+                packages={purchasablePackages(tutor.packages, tutor.bankAccounts).filter((p) => !(p.isTrial && trials > 0))}
                 returnTo={`/dashboard/lektor/${tutor.id}`}
-                payment={{ card: cardPaymentsAvailable(tutor), transfer: Boolean(tutor.bankIban) }}
               />
             </section>
           )}

@@ -4,9 +4,9 @@ import { saveBillingDetails } from "@/app/actions/billing";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
 
-type Initial = { legalName: string; street: string; cityName: string; zip: string; country: string; companyId: string; vatId: string; birthDate: string };
+type Initial = { legalName: string; street: string; cityName: string; zip: string; country: string; companyId: string; vatId: string; birthDate: string; billingCurrency: string };
 
-export function BillingDetailsForm({ initial }: { initial: Initial }) {
+export function BillingDetailsForm({ initial, currencies }: { initial: Initial; currencies: string[] }) {
   const [state, action] = useActionState(saveBillingDetails, null);
   return (
     <form action={action} className="space-y-4">
@@ -32,16 +32,16 @@ export function BillingDetailsForm({ initial }: { initial: Initial }) {
           <div>
             <label htmlFor="b-country" className="label">Země</label>
             <select id="b-country" name="country" defaultValue={initial.country} className="input">
-              {["CZ", "SK", "AT", "DE", "PL"].map((c) => <option key={c}>{c}</option>)}
+              {["CZ", "SK", "AT", "DE", "PL", "HU", "GB", "IE", "FR", "ES", "IT", "NL", "BE", "CH", "US"].map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
         </div>
         <div>
-          <label htmlFor="b-ico" className="label">IČO</label>
+          <label htmlFor="b-ico" className="label">IČO / identifikační číslo firmy</label>
           <input id="b-ico" name="companyId" defaultValue={initial.companyId} inputMode="numeric" className="input" />
         </div>
         <div>
-          <label htmlFor="b-dic" className="label">DIČ (pokud jste plátce DPH)</label>
+          <label htmlFor="b-dic" className="label">DIČ / VAT ID (pokud jste plátce DPH)</label>
           <input id="b-dic" name="vatId" defaultValue={initial.vatId} placeholder="CZ12345678" className="input" />
         </div>
         <div>
@@ -49,6 +49,12 @@ export function BillingDetailsForm({ initial }: { initial: Initial }) {
           <input id="b-birth" name="birthDate" type="date" defaultValue={initial.birthDate} className="input" />
           <p className="hint">Povinné, pokud nemáte IČO (vyžaduje hlášení DAC7).</p>
         </div>
+      </div>
+      <div className="max-w-xs">
+        <label htmlFor="b-cur" className="label">Měna fakturace předplatného</label>
+        <select id="b-cur" name="billingCurrency" defaultValue={initial.billingCurrency} className="input">
+          {currencies.map((c) => <option key={c} value={c}>{c.toUpperCase()}</option>)}
+        </select>
       </div>
       <SubmitButton className="btn-secondary">Uložit údaje</SubmitButton>
     </form>

@@ -6,7 +6,7 @@ import { PLANS } from "@/lib/plans";
 
 export const metadata: Metadata = {
   title: "Pro lektory – evidence studentů, platby a rezervace bez provize",
-  description: "Systém pro online lektory jazyků: evidence studentů, prodej balíčků lekcí, platby kartou i QR převodem, rezervace s Google Kalendářem a poznámky z lekcí. Bez provize, do 3 studentů zdarma.",
+  description: "Systém pro online lektory jazyků: evidence studentů, prodej balíčků lekcí, platby převodem v různých měnách, rezervace s Google Kalendářem a poznámky z lekcí. Bez provize, do 3 studentů zdarma.",
   alternates: { canonical: "/pro-lektory" },
 };
 
@@ -14,7 +14,7 @@ const ROWS = [
   ["Evidence studentů", "Každý student má kartu s historií lekcí, poznámkami a zbývajícími hodinami."],
   ["Pozvánky", "Pozvěte stávající studenty e-mailem nebo jim pošlete odkaz."],
   ["Balíčky a zkušební lekce", "Vlastní ceny, délka lekce, počet hodin v balíčku."],
-  ["Platby kartou i převodem", "QR platba na váš účet nebo karta přes váš Stripe. Peníze jdou rovnou vám, bez provize."],
+  ["Platby převodem i ze zahraničí", "Účty v CZK, EUR, USD a dalších měnách, IBAN/SWIFT, QR platby. Peníze jdou rovnou vám, bez provize."],
   ["Pravidelné lekce", "Student si jedním kliknutím zarezervuje stejný čas na několik týdnů dopředu."],
   ["Zprávy a materiály", "Komunikace se studenty a sdílení souborů na jednom místě."],
   ["Dostupnost a rezervace", "Nastavíte, kdy učíte, studenti si sami vyberou volný termín."],
@@ -25,7 +25,7 @@ const ROWS = [
 
 export default function ForTutorsPage() {
   const free = PLANS[0];
-  const cheapest = PLANS.find((p) => p.priceCents > 0)!;
+  const cheapest = PLANS.find((p) => p.prices.czk > 0)!;
   return (
     <div className="container-page py-14">
       <div className="mx-auto max-w-3xl text-center">
@@ -33,7 +33,7 @@ export default function ForTutorsPage() {
         <h1 className="mt-2 text-4xl font-extrabold sm:text-5xl">Celá vaše výuka na jednom místě</h1>
         <p className="mt-5 text-lg text-ink-soft">
           Konec excelových tabulek, ručního hlídání zaplacených hodin a domlouvání termínů přes zprávy. Do {free.maxStudents} studentů
-          zdarma, pak od {formatMoney(cheapest.priceCents)} měsíčně – a z vašich lekcí si nikdy nebereme provizi.
+          zdarma, pak od {formatMoney(cheapest.prices.czk, "czk")} měsíčně – a z vašich lekcí si nikdy nebereme provizi.
         </p>
         <Link href="/registrace?role=tutor" className="btn-primary mt-8 px-6 py-3 text-base">Založit profil zdarma</Link>
       </div>
@@ -55,9 +55,10 @@ export default function ForTutorsPage() {
         <div className="mt-8">
           <Faq
             items={[
-              { q: "Musím mít živnostenský list?", a: "Platformu může používat každý, kdo legálně poskytuje výuku. Za zdanění příjmů odpovídá lektor. Pro platby kartou si zakládáte vlastní účet Stripe, který ověřuje vaši identitu." },
+              { q: "Musím mít živnostenský list?", a: "Platformu může používat každý, kdo legálně poskytuje výuku. Za zdanění příjmů odpovídá lektor." },
               { q: "Mohu převést stávající studenty?", a: "Ano. Ve svém přehledu jim pošlete pozvánku. Po přijetí si u vás mohou rovnou koupit lekce a rezervovat termíny." },
-              { q: "Jak rychle dostanu peníze?", a: "Převodem okamžitě na váš účet – student zaplatí přes QR kód a vy platbu jedním kliknutím potvrdíte. Kartou na váš Stripe účet, ze kterého Stripe vyplácí obvykle do několika pracovních dní." },
+              { q: "Jak rychle dostanu peníze?", a: "Studenti platí převodem přímo na váš účet – tuzemské platby dorazí obvykle do druhého dne, zahraniční do několika dní. Platbu jedním kliknutím potvrdíte a lekce se studentovi připíšou." },
+              { q: "Mohu učit studenty ze zahraničí?", a: "Ano. Ke každé měně, ve které prodáváte, přidáte bankovní účet (IBAN, SWIFT/BIC). Studenti uvidí všechny údaje pro mezinárodní převod a u eur i QR kód pro SEPA platbu." },
               { q: "Co se počítá jako aktivní student?", a: "Každý student, kterého nemáte v archivu. Studenty, kteří u vás momentálně nestudují, můžete jedním kliknutím archivovat a do tarifu se nepočítají – historie lekcí jim zůstane." },
             ]}
           />

@@ -9,7 +9,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   await requireAdmin();
   return (
     <div className="container-page py-8">
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-3 print:hidden">
         <span className="badge bg-ink text-white">ADMIN</span>
         <AdminNav />
       </div>

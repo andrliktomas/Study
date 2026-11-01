@@ -23,11 +23,11 @@ export default function PricingPage() {
           <div key={p.id} className={`card relative flex flex-col ${p.highlight ? "border-brand-300 shadow-glow" : ""}`}>
             {p.highlight && <span className="badge absolute right-5 top-5 bg-brand-500 text-white">Oblíbený</span>}
             <h2 className="text-lg font-semibold">{p.name}</h2>
-            <p className="mt-4 text-4xl font-extrabold">{p.priceCents ? formatMoney(p.priceCents) : "0 Kč"}</p>
-            <p className="text-sm text-ink-faint">měsíčně</p>
+            <p className="mt-4 whitespace-nowrap text-4xl font-extrabold">{formatMoney(p.prices.czk, "czk")}</p>
+            <p className="text-sm text-ink-faint">měsíčně{p.prices.eur > 0 && <> · {formatMoney(p.prices.eur, "eur")}</>}</p>
             <p className="mt-3 font-medium text-brand-700">{p.maxStudents ? `až ${p.maxStudents} aktivních studentů` : "neomezeně studentů"}</p>
             <Link href="/registrace?role=tutor" className={`${p.highlight ? "btn-primary" : "btn-secondary"} mt-6 w-full`}>
-              {p.priceCents ? "Vyzkoušet zdarma" : "Začít zdarma"}
+              {p.prices.czk ? "Vybrat tarif" : "Začít zdarma"}
             </Link>
           </div>
         ))}
@@ -43,9 +43,9 @@ export default function PricingPage() {
           items={[
             { q: "Kdo je aktivní student?", a: "Každý student, kterého nemáte v archivu. Archivovaní studenti se do tarifu nepočítají a jejich historie zůstává zachovaná." },
             { q: "Co když překročím limit tarifu?", a: "Stávající studenti fungují dál, jen se k vám nemohou zapsat noví. Stačí přejít na vyšší tarif nebo archivovat neaktivní studenty." },
-            { q: "Platím nějaké poplatky z lekcí?", a: "Platformě ne. Při platbě převodem neplatíte nic, při platbě kartou si Stripe účtuje svůj běžný poplatek za zpracování karty." },
-            { q: "Mohu předplatné kdykoli zrušit?", a: "Ano. Předplatné běží do konce zaplaceného měsíce a pak přejdete na tarif Zdarma." },
-            { q: "Dostanu fakturu?", a: "Ano, za každé období vám automaticky vystavíme fakturu, kterou najdete v sekci Předplatné." },
+            { q: "Platím nějaké poplatky z lekcí?", a: "Ne. Studenti vám platí převodem přímo na váš bankovní účet – v korunách, eurech, dolarech i dalších měnách. Platforma z toho nic nemá." },
+            { q: "Jak se platí předplatné?", a: "Převodem na fakturu (v CZK nebo EUR). Fakturu s QR kódem dostanete e-mailem, vyšší tarif platí hned a máte 14 dní na úhradu. Další měsíc vám fakturu pošleme 7 dní předem." },
+            { q: "Mohu předplatné kdykoli zrušit?", a: "Ano. Předplatné běží do konce zaplaceného měsíce a pak přejdete na tarif Zdarma. Žádné automatické strhávání z karty – další měsíc platíte jen tehdy, když uhradíte fakturu." },
           ]}
         />
       </div>

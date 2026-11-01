@@ -13,7 +13,7 @@ export const revalidate = 300;
 const STEPS = [
   { t: "Lektor si založí profil", d: "Za pár minut, do 3 studentů zdarma. Nastaví jazyky, ceník balíčků a časy, kdy učí." },
   { t: "Pozve své studenty", d: "Pošle pozvánku e-mailem nebo odkazem. Noví studenti ho najdou i v katalogu." },
-  { t: "Student si koupí lekce", d: "Jednu, pět, deset nebo zkušební. Zaplatí kartou nebo převodem s QR kódem – peníze jdou rovnou lektorovi." },
+  { t: "Student si koupí lekce", d: "Jednu, pět, deset nebo zkušební. Zaplatí převodem – i ze zahraničí, s QR kódem – peníze jdou rovnou lektorovi." },
   { t: "Rezervace a přehled", d: "Student si vybere volný termín, lekce se propíše do Google Kalendáře i s odkazem na hovor." },
 ];
 
@@ -22,13 +22,13 @@ const FEATURES = [
   { icon: "🎟️", t: "Balíčky lekcí", d: "Prodávejte jednotlivé hodiny, zvýhodněné balíčky i zkušební lekce." },
   { icon: "📊", t: "Zbývající lekce", d: "Lektor i student vždy vidí, kolik lekcí zbývá a kolik se vyčerpalo." },
   { icon: "📝", t: "Poznámky z lekcí", d: "Co se probíralo a jaký je domácí úkol – přehledně u každé lekce." },
-  { icon: "💳", t: "Platby bez provize", d: "Kartou na váš Stripe účet nebo převodem s QR kódem. Z lekcí si nebereme nic." },
+  { icon: "🏦", t: "Platby bez provize", d: "Převodem přímo na váš účet v CZK, EUR, USD a dalších měnách, s QR kódem. Z lekcí si nebereme nic." },
   { icon: "🌍", t: "Veřejný profil", d: "Inzerujte v katalogu. Profil je optimalizovaný pro vyhledávače." },
 ];
 
 export default async function Home() {
   const tutors = (await getPublishedTutors()).slice(0, 6);
-  const paid = PLANS.filter((p) => p.priceCents > 0);
+  const paid = PLANS.filter((p) => p.prices.czk > 0);
   const free = PLANS[0];
 
   return (
@@ -127,9 +127,9 @@ export default async function Home() {
         <div className="mt-8">
           <Faq
             items={[
-              { q: "Kolik platforma stojí?", a: `Pro studenty nic. Lektoři platí měsíční předplatné podle počtu aktivních studentů: do ${free.maxStudents} studentů zdarma, pak od ${formatMoney(paid[0].priceCents)} měsíčně. Z ceny lekcí si nebereme žádnou provizi.` },
+              { q: "Kolik platforma stojí?", a: `Pro studenty nic. Lektoři platí měsíční předplatné podle počtu aktivních studentů: do ${free.maxStudents} studentů zdarma, pak od ${formatMoney(paid[0].prices.czk, "czk")} měsíčně. Z ceny lekcí si nebereme žádnou provizi.` },
               { q: "Jak funguje propojení s Google Kalendářem?", a: "Lektor jedním kliknutím připojí svůj Google Kalendář. Obsazené časy se studentům nezobrazí a každá rezervovaná lekce se do kalendáře zapíše včetně odkazu na Google Meet. Student dostane pozvánku e-mailem." },
-              { q: "Kdy dostane lektor peníze?", a: "Hned – platby jdou přímo lektorovi. Převodem rovnou na jeho bankovní účet (student zaplatí přes QR kód), kartou na jeho vlastní Stripe účet, odkud se peníze vyplácejí obvykle do několika dní." },
+              { q: "Jak se platí za lekce?", a: "Převodem přímo na účet lektora. Student dostane všechny údaje včetně IBAN a SWIFT, u plateb v korunách a eurech i QR kód pro mobilní bankovnictví. Lektor platbu potvrdí a lekce se připíšou." },
               { q: "Může student zrušit lekci?", a: "Ano, do lhůty, kterou si nastaví lektor (výchozí je 24 hodin předem). Lekce se mu v tom případě vrátí do balíčku." },
               { q: "Potřebuji speciální software na videohovory?", a: "Ne. Lekce mohou probíhat přes Google Meet, Zoom, Skype nebo jiný nástroj, který lektor používá." },
             ]}

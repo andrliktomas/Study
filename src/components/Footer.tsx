@@ -5,7 +5,7 @@ import { Logo } from "./Logo";
 
 export function Footer() {
   return (
-    <footer className="mt-24 border-t border-slate-100 bg-gradient-to-b from-white to-brand-50/60">
+    <footer className="mt-24 print:hidden border-t border-slate-100 bg-gradient-to-b from-white to-brand-50/60">
       <div className="container-page grid gap-10 py-14 md:grid-cols-4">
         <div className="md:col-span-1">
           <Logo />

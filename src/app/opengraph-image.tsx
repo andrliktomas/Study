@@ -14,7 +14,7 @@ export default async function Image() {
           <div style={{ fontSize: 34, color: "#46636a" }}>Studenti, balíčky lekcí, platby a Google Kalendář na jednom místě.</div>
         </div>
         <div style={{ display: "flex", gap: 14 }}>
-          {["Bez provize z lekcí", "Platby kartou i QR", "Rezervace online"].map((t) => (
+          {["Bez provize z lekcí", "Platby převodem i ze zahraničí", "Rezervace online"].map((t) => (
             <div key={t} style={{ fontSize: 26, padding: "10px 22px", borderRadius: 999, background: "#ffffff", border: "2px solid #a5f3fc", color: "#0f7579" }}>{t}</div>
           ))}
         </div>

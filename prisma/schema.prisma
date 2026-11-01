@@ -90,52 +90,51 @@ model RateLimit {
 // ---------- Lektoři ----------
 
 model TutorProfile {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  slug            String   @unique
-  headline        String   @default("")
-  bio             String   @default("")
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  slug           String  @unique
+  headline       String  @default("")
+  bio            String  @default("")
   // čárkou oddělené kódy jazyků, např. "en,de"
-  languages       String   @default("")
-  levels          String   @default("")
-  city            String?
-  videoLink       String?
-  published       Boolean  @default(false)
-  calendarSync    Boolean  @default(false)
+  languages      String  @default("")
+  levels         String  @default("")
+  city           String?
+  videoLink      String?
+  published      Boolean @default(false)
+  calendarSync   Boolean @default(false)
   // minimální předstih rezervace v hodinách
-  minNoticeHours  Int      @default(12)
+  minNoticeHours Int     @default(12)
   // do kolika hodin před lekcí může student zrušit bez ztráty lekce
-  cancelHours     Int      @default(24)
+  cancelHours    Int     @default(24)
   // pozastavený administrátorem – nezobrazuje se v katalogu a nelze u něj nakupovat
-  suspended       Boolean  @default(false)
+  suspended      Boolean @default(false)
 
-  // Platby od studentů: vlastní Stripe účet lektora (Standard) a/nebo převod na účet
-  stripeAccountId String?
-  stripeOnboarded Boolean  @default(false)
-  bankIban        String?
-
-  // Předplatné platformy (tarif podle počtu studentů)
-  plan                 String    @default("FREE")
-  stripeCustomerId     String?   @unique
-  stripeSubscriptionId String?   @unique
-  subscriptionStatus   String?
-  currentPeriodEnd     DateTime?
-  cancelAtPeriodEnd    Boolean   @default(false)
+  // Předplatné platformy (tarif podle počtu studentů), placené převodem na fakturu
+  plan            String    @default("FREE")
+  // tarif od dalšího období (nižší tarif nebo "FREE" = zrušení předplatného)
+  nextPlan        String?
+  // do kdy má lektor tarif k dispozici (zaplacené období, nebo lhůta splatnosti faktury)
+  planActiveUntil DateTime?
+  // konec zaplaceného období
+  paidUntil       DateTime?
+  billingCurrency String    @default("czk")
 
   // Fakturační a daňové údaje (faktury za předplatné, hlášení DAC7)
-  legalName   String?
-  street      String?
-  cityName    String?
-  zip         String?
-  country     String  @default("CZ")
-  companyId   String?
-  vatId       String?
-  birthDate   DateTime?
+  legalName String?
+  street    String?
+  cityName  String?
+  zip       String?
+  country   String    @default("CZ")
+  companyId String?
+  vatId     String?
+  birthDate DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankAccounts TutorBankAccount[]
+  invoices     Invoice[]
   packages     LessonPackage[]
   invitations  Invitation[]
   enrollments  Enrollment[]
@@ -143,6 +142,29 @@ model TutorProfile {
   purchases    Purchase[]
   lessons      Lesson[]
   reviews      Review[]
+}
+
+// Bankovní účet lektora pro platby studentů – jeden na měnu.
+model TutorBankAccount {
+  id            String   @id @default(cuid())
+  tutorId       String
+  // kód měny malými písmeny: czk, eur, usd…
+  currency      String
+  holderName    String
+  // IBAN (preferovaný), nebo číslo účtu pro země bez IBAN (USA…)
+  iban          String?
+  accountNumber String?
+  // SWIFT / BIC – nutný pro platby ze zahraničí
+  bic           String?
+  bankName      String?
+  // doplňující údaje pro mezinárodní platbu (např. ABA routing number, adresa banky)
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tutor TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@unique([tutorId, currency])
 }
 
 model LessonPackage {
@@ -209,29 +231,28 @@ model Enrollment {
 }
 
 model Purchase {
-  id                    String    @id @default(cuid())
-  tutorId               String
-  studentId             String
-  packageId             String?
-  packageName           String
-  lessonsTotal          Int
-  durationMin           Int
-  amountCents           Int
-  currency              String
+  id              String    @id @default(cuid())
+  tutorId         String
+  studentId       String
+  packageId       String?
+  packageName     String
+  lessonsTotal    Int
+  durationMin     Int
+  amountCents     Int
+  currency        String
   // "PENDING" | "PAID" | "REFUNDED" | "CANCELLED"
-  status                String    @default("PENDING")
-  // "STRIPE" = kartou, "TRANSFER" = převodem (potvrzuje lektor), "MANUAL" = připsal lektor, "DEV" = simulace
-  source                String    @default("STRIPE")
-  note                  String?
-  variableSymbol        String?   @unique
-  stripeSessionId       String?   @unique
-  stripePaymentIntentId String?
-  paidAt                DateTime?
-  expiresAt             DateTime?
-  refundedLessons       Int       @default(0)
-  refundedCents         Int       @default(0)
-  refundedAt            DateTime?
-  createdAt             DateTime  @default(now())
+  status          String    @default("PENDING")
+  // "TRANSFER" = převodem (potvrzuje lektor), "MANUAL" = připsal lektor ručně
+  source          String    @default("TRANSFER")
+  note            String?
+  // variabilní symbol / reference platby
+  variableSymbol  String?   @unique
+  paidAt          DateTime?
+  expiresAt       DateTime?
+  refundedLessons Int       @default(0)
+  refundedCents   Int       @default(0)
+  refundedAt      DateTime?
+  createdAt       DateTime  @default(now())
 
   tutor   TutorProfile   @relation(fields: [tutorId], references: [id], onDelete: Cascade)
   student User           @relation("StudentPurchases", fields: [studentId], references: [id], onDelete: Cascade)
@@ -322,4 +343,44 @@ model StoredFile {
 
   owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   message Message?
+}
+
+// ---------- Fakturace předplatného ----------
+
+// Faktura platformy lektorovi. Zůstává i po smazání účtu lektora (účetnictví) – údaje odběratele jsou ve snímku.
+model Invoice {
+  id             String    @id @default(cuid())
+  // číslo faktury, zároveň variabilní symbol (např. 20260001)
+  number         String    @unique
+  tutorId        String?
+  // "FIRST" = první období, "RENEWAL" = obnova, "UPGRADE" = doplatek za vyšší tarif
+  kind           String
+  plan           String
+  previousPlan   String?
+  currency       String
+  // celková částka včetně DPH
+  amountCents    Int
+  vatRate        Int       @default(0)
+  periodStart    DateTime
+  periodEnd      DateTime
+  issuedAt       DateTime  @default(now())
+  dueAt          DateTime
+  // "ISSUED" | "PAID" | "EXPIRED" | "CANCELLED"
+  status         String    @default("ISSUED")
+  paidAt         DateTime?
+  reminderSentAt DateTime?
+  // kdy se faktura za obnovu promítla do tarifu (začátek nového období)
+  appliedAt      DateTime?
+  // JSON snímky dodavatele a odběratele v okamžiku vystavení
+  supplier       String
+  customer       String
+
+  tutor TutorProfile? @relation(fields: [tutorId], references: [id], onDelete: SetNull)
+
+  @@index([tutorId, status])
+}
+
+model InvoiceCounter {
+  year Int @id
+  last Int @default(0)
 }

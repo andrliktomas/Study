@@ -3,6 +3,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { savePackage } from "@/app/actions/tutor";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
+import { CURRENCIES } from "@/lib/currencies";
 
 type Pkg = { id: string; name: string; description: string; lessonCount: number; durationMin: number; price: number; currency: string; isTrial: boolean; validityDays: number | null };
 
@@ -42,8 +43,7 @@ export function PackageForm({ pkg }: { pkg?: Pkg }) {
         <div>
           <label htmlFor={`cur-${id}`} className="label">Měna</label>
           <select id={`cur-${id}`} name="currency" defaultValue={pkg?.currency ?? "czk"} className="input">
-            <option value="czk">CZK</option>
-            <option value="eur">EUR</option>
+            {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.code.toUpperCase()}</option>)}
           </select>
         </div>
       </div>

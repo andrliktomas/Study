@@ -94,6 +94,9 @@ test("administrace: MRR, lektoři a export DAC7", async ({ page }) => {
   expect(body).toContain("lektor_id;jmeno_nazev");
   expect(body).toContain("Jana Nováková");
 
+  await page.goto("/admin/fakturace?f=zaplacene");
+  await expect(page.getByText(`${new Date().getFullYear()}0001`)).toBeVisible();
+
   const forbidden = await (await page.context().browser()!.newContext()).request.get("/api/admin/dac7");
   expect(forbidden.status()).toBe(403);
 });

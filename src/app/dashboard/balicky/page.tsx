@@ -1,4 +1,5 @@
 import { togglePackage } from "@/app/actions/tutor";
+import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { db } from "@/lib/db";
 import { formatMoney, pluralLessons } from "@/lib/format";
@@ -7,6 +8,7 @@ import { PackageForm } from "./PackageForm";
 
 export default async function PackagesPage() {
   const { profile } = await requireTutor();
+  const accounts = await db.tutorBankAccount.findMany({ where: { tutorId: profile.id }, select: { currency: true } });
   const packages = await db.lessonPackage.findMany({
     where: { tutorId: profile.id },
     orderBy: [{ active: "desc" }, { sortOrder: "asc" }, { priceCents: "asc" }],
@@ -26,6 +28,11 @@ export default async function PackagesPage() {
                   <p className="font-semibold">
                     {p.name} {p.isTrial && <span className="badge ml-1 bg-brand-100 text-brand-800">Zkušební</span>}
                     {!p.active && <span className="badge ml-1 bg-slate-100 text-ink-faint">Skrytý</span>}
+                    {p.active && !accounts.some((a) => a.currency === p.currency) && (
+                      <Link href="/dashboard/platby" className="badge ml-1 bg-amber-100 text-amber-800 hover:underline">
+                        Chybí účet v {p.currency.toUpperCase()} – studenti ho nevidí
+                      </Link>
+                    )}
                   </p>
                   <p className="text-sm text-ink-faint">
                     {p.lessonCount} {pluralLessons(p.lessonCount)} · {p.durationMin} min · prodáno {p._count.purchases}×

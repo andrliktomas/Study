@@ -3,6 +3,7 @@ import { setTutorSuspended } from "@/app/actions/admin";
 import { PageHeader } from "@/components/PageHeader";
 import { SubmitButton } from "@/components/SubmitButton";
 import { db } from "@/lib/db";
+import { formatDate } from "@/lib/format";
 import { effectivePlan } from "@/lib/plans";
 
 export default async function AdminTutors(props: { searchParams: Promise<{ q?: string }> }) {
@@ -18,7 +19,11 @@ export default async function AdminTutors(props: { searchParams: Promise<{ q?: s
           ],
         }
       : {},
-    include: { user: true, _count: { select: { enrollments: { where: { archivedAt: null } } } } },
+    include: {
+      user: true,
+      bankAccounts: { select: { currency: true } },
+      _count: { select: { enrollments: { where: { archivedAt: null } }, invoices: { where: { status: "ISSUED" } } } },
+    },
     orderBy: { createdAt: "desc" },
     take: 200,
   });
@@ -59,11 +64,12 @@ export default async function AdminTutors(props: { searchParams: Promise<{ q?: s
                   </td>
                   <td className="p-3">
                     {plan.name}
-                    {t.subscriptionStatus && t.subscriptionStatus !== "active" && <span className="block text-xs text-amber-700">{t.subscriptionStatus}</span>}
-                    {t.cancelAtPeriodEnd && <span className="block text-xs text-ink-faint">ruší</span>}
+                    {t.paidUntil && <span className="block text-xs text-ink-faint">zapl. do {formatDate(t.paidUntil)}</span>}
+                    {t._count.invoices > 0 && <span className="block text-xs text-amber-700">faktura k úhradě</span>}
+                    {t.nextPlan === "FREE" && <span className="block text-xs text-ink-faint">ruší</span>}
                   </td>
                   <td className={`p-3 text-right ${atLimit ? "font-semibold text-amber-700" : ""}`}>{t._count.enrollments} / {plan.maxStudents ?? "∞"}</td>
-                  <td className="p-3 text-xs text-ink-soft">{[t.bankIban && "převod", t.stripeOnboarded && "karta"].filter(Boolean).join(", ") || "—"}</td>
+                  <td className="p-3 text-xs text-ink-soft">{t.bankAccounts.map((a) => a.currency.toUpperCase()).join(", ") || "—"}</td>
                   <td className="p-3 text-xs">{t.legalName && t.street && (t.companyId || t.birthDate) ? "✓" : <span className="text-amber-700">chybí</span>}</td>
                   <td className="p-3 text-right">
                     <form action={setTutorSuspended}>

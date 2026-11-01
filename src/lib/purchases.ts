@@ -7,7 +7,7 @@ import { sendMail } from "./mail";
 import { absoluteUrl } from "./site";
 
 /** Označí nákup jako zaplacený (karta, potvrzený převod, simulace) a nastaví platnost balíčku. */
-export async function markPurchasePaid(purchaseId: string, extra: { stripePaymentIntentId?: string | null; notifyTutor?: boolean } = {}) {
+export async function markPurchasePaid(purchaseId: string, extra: { notifyTutor?: boolean } = {}) {
   const purchase = await db.purchase.findUnique({ where: { id: purchaseId }, include: { package: true } });
   if (!purchase || purchase.status !== "PENDING") return null;
   const paidAt = new Date();
@@ -18,7 +18,6 @@ export async function markPurchasePaid(purchaseId: string, extra: { stripePaymen
       status: "PAID",
       paidAt,
       expiresAt: validity ? addDays(paidAt, validity) : null,
-      ...(extra.stripePaymentIntentId ? { stripePaymentIntentId: extra.stripePaymentIntentId } : {}),
     },
   });
   if (res.count === 0) return null;

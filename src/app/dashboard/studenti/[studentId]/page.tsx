@@ -12,7 +12,7 @@ import { requireTutor } from "@/lib/session";
 import { ManualGrantForm, RefundButton } from "./forms";
 
 export default async function StudentDetailPage(
-  props: { params: Promise<{ studentId: string }>; searchParams: Promise<{ chyba?: string; vraceno?: string; mena?: string; karta?: string }> }
+  props: { params: Promise<{ studentId: string }>; searchParams: Promise<{ chyba?: string; vraceno?: string; mena?: string }> }
 ) {
   const searchParams = await props.searchParams;
   const params = await props.params;
@@ -39,9 +39,7 @@ export default async function StudentDetailPage(
       )}
       {searchParams.vraceno && (
         <Notice tone="success">
-          {searchParams.karta === "1"
-            ? `Vráceno ${formatMoney(Number(searchParams.vraceno), searchParams.mena)} na kartu studenta.`
-            : `Zaznamenáno vrácení ${formatMoney(Number(searchParams.vraceno), searchParams.mena)} – peníze prosím pošlete studentovi převodem.`}
+          {`Zaznamenáno vrácení ${formatMoney(Number(searchParams.vraceno), searchParams.mena)} – peníze prosím pošlete studentovi převodem.`}
         </Notice>
       )}
       {enrollment.archivedAt && <Notice tone="warn">Student je v archivu – nepočítá se do tarifu a nemůže kupovat ani rezervovat lekce.</Notice>}

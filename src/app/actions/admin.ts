@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cancelInvoice, markInvoicePaid } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/session";
 
@@ -35,4 +36,18 @@ export async function setAdminRole(formData: FormData) {
     data: { role: makeAdmin ? "ADMIN" : user.tutorProfile ? "TUTOR" : "STUDENT" },
   });
   revalidatePath("/admin/uzivatele");
+}
+
+export async function adminMarkInvoicePaid(formData: FormData) {
+  await requireAdmin();
+  const raw = String(formData.get("paidAt") ?? "");
+  const paidAt = raw ? new Date(`${raw}T12:00:00`) : new Date();
+  await markInvoicePaid(String(formData.get("invoiceId")), Number.isNaN(paidAt.getTime()) ? new Date() : paidAt);
+  revalidatePath("/admin", "layout");
+}
+
+export async function adminCancelInvoice(formData: FormData) {
+  await requireAdmin();
+  await cancelInvoice(String(formData.get("invoiceId")));
+  revalidatePath("/admin", "layout");
 }

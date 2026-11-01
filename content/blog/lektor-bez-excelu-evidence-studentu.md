@@ -33,7 +33,7 @@ Domluvte se předem, do kdy jde lekci zrušit nebo přesunout bez ztráty (typic
 
 ## 4. Platby převodem s QR kódem
 
-Většina studentů v Česku platí nejraději převodem. QR kód s předvyplněnou částkou a variabilním symbolem jim ušetří práci a vám usnadní párování plateb – podle variabilního symbolu hned víte, kdo zaplatil. Platby kartou se hodí pro studenty ze zahraničí.
+Většina studentů v Česku platí nejraději převodem. QR kód s předvyplněnou částkou a variabilním symbolem jim ušetří práci a vám usnadní párování plateb – podle variabilního symbolu hned víte, kdo zaplatil. Učíte studenty ze zahraničí? Mějte účet v jejich měně (např. EUR) a pošlete jim IBAN a SWIFT – v eurozóně jde platit i přes SEPA QR kód.
 
 ## 5. Zapisujte po každé lekci tři věci
 
@@ -45,4 +45,4 @@ Materiály, zprávy a odkazy rozeseté po e-mailu, WhatsAppu a Messengeru se tě
 
 ## Jak to řeší Lektorium
 
-Lektorium vzniklo přesně pro tohle: studenti, balíčky, rezervace s Google Kalendářem, platby kartou i QR převodem, poznámky z lekcí a zprávy na jednom místě. **Z vašich lekcí si nebereme žádnou provizi** – platíte jen měsíční předplatné podle počtu aktivních studentů a do tří studentů je to zdarma. [Podívejte se na ceník](/cenik) nebo si rovnou [založte profil](/registrace?role=tutor).
+Lektorium vzniklo přesně pro tohle: studenti, balíčky, rezervace s Google Kalendářem, platby převodem v různých měnách s QR kódem, poznámky z lekcí a zprávy na jednom místě. **Z vašich lekcí si nebereme žádnou provizi** – platíte jen měsíční předplatné podle počtu aktivních studentů a do tří studentů je to zdarma. [Podívejte se na ceník](/cenik) nebo si rovnou [založte profil](/registrace?role=tutor).

@@ -6,7 +6,8 @@ const LINKS = [
   { href: "/admin", label: "Přehled" },
   { href: "/admin/lektori", label: "Lektoři" },
   { href: "/admin/uzivatele", label: "Uživatelé" },
-  { href: "/admin/platby", label: "Platby a provize" },
+  { href: "/admin/fakturace", label: "Fakturace" },
+  { href: "/admin/platby", label: "Platby lekcí" },
   { href: "/admin/hodnoceni", label: "Hodnocení" },
 ];
 

@@ -22,15 +22,15 @@ export async function GET(req: Request) {
   const to = new Date(Date.UTC(year + 1, 0, 1));
 
   const purchases = await db.purchase.findMany({
-    where: { status: { in: ["PAID", "REFUNDED"] }, source: { in: ["STRIPE", "TRANSFER"] }, paidAt: { gte: from, lt: to } },
+    where: { status: { in: ["PAID", "REFUNDED"] }, source: { in: ["STRIPE", "TRANSFER"] /* karta = historické platby */ }, paidAt: { gte: from, lt: to } },
     select: { tutorId: true, amountCents: true, refundedCents: true, currency: true, paidAt: true },
   });
   const tutors = await db.tutorProfile.findMany({
     where: { id: { in: [...new Set(purchases.map((p) => p.tutorId))] } },
-    include: { user: { select: { email: true, name: true } } },
+    include: { user: { select: { email: true, name: true } }, bankAccounts: true },
   });
 
-  const header = ["lektor_id", "jmeno_nazev", "email", "ulice", "mesto", "psc", "zeme", "ico", "dic", "datum_narozeni", "iban", "mena", "pocet_plateb", "q1", "q2", "q3", "q4", "celkem"];
+  const header = ["lektor_id", "jmeno_nazev", "email", "ulice", "mesto", "psc", "zeme", "ico", "dic", "datum_narozeni", "iban_ucet", "mena", "pocet_plateb", "q1", "q2", "q3", "q4", "celkem"];
   const rows: string[][] = [];
   for (const t of tutors) {
     const mine = purchases.filter((p) => p.tutorId === t.id);
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
       for (const p of list) q[Math.floor(p.paidAt!.getUTCMonth() / 3)] += p.amountCents - p.refundedCents;
       rows.push([
         t.id, t.legalName ?? t.user.name ?? "", t.user.email, t.street ?? "", t.cityName ?? "", t.zip ?? "", t.country,
-        t.companyId ?? "", t.vatId ?? "", t.birthDate?.toISOString().slice(0, 10) ?? "", t.bankIban ?? "",
+        t.companyId ?? "", t.vatId ?? "", t.birthDate?.toISOString().slice(0, 10) ?? "", t.bankAccounts.find((a) => a.currency === currency)?.iban ?? t.bankAccounts.find((a) => a.currency === currency)?.accountNumber ?? "",
         currency.toUpperCase(), String(list.length), ...q.map((c) => (c / 100).toFixed(2)), (q.reduce((a, b) => a + b, 0) / 100).toFixed(2),
       ]);
     }

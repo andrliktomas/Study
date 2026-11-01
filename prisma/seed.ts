@@ -26,11 +26,16 @@ async function main() {
           levels: "A2,B1,B2,C1",
           city: "Brno",
           published: true,
-          // ukázkový účet z dokumentace ČNB – v praxi lektor zadá svůj
-          bankIban: "CZ6508000000192000145399",
+          // ukázkové účty (vzorové IBANy z dokumentace bank) – v praxi lektor zadá své
+          bankAccounts: {
+            create: [
+              { currency: "czk", holderName: "Jana Nováková", iban: "CZ6508000000192000145399", bic: "GIBACZPX", bankName: "Česká spořitelna" },
+              { currency: "eur", holderName: "Jana Nováková", iban: "DE89370400440532013000", bic: "COBADEFFXXX", bankName: "Commerzbank" },
+            ],
+          },
           plan: "START",
-          subscriptionStatus: "active",
-          currentPeriodEnd: new Date(Date.now() + 20 * DAY),
+          paidUntil: new Date(Date.now() + 20 * DAY),
+          planActiveUntil: new Date(Date.now() + 20 * DAY),
           legalName: "Jana Nováková",
           street: "Masarykova 12",
           cityName: "Brno",
@@ -42,6 +47,7 @@ async function main() {
               { name: "Jedna lekce", lessonCount: 1, durationMin: 60, priceCents: 55000, sortOrder: 1 },
               { name: "Balíček 5 lekcí", lessonCount: 5, durationMin: 60, priceCents: 250000, sortOrder: 2, validityDays: 90, description: "Ušetříte 250 Kč" },
               { name: "Balíček 10 lekcí", lessonCount: 10, durationMin: 60, priceCents: 450000, sortOrder: 3, validityDays: 180, description: "Nejvýhodnější" },
+              { name: "5 lessons (international)", lessonCount: 5, durationMin: 60, priceCents: 11000, currency: "eur", sortOrder: 4, validityDays: 90, description: "Pro studenty ze zahraničí – platba v eurech (SEPA)" },
             ],
           },
           availability: {
@@ -70,7 +76,7 @@ async function main() {
           languages: "de,es",
           levels: "A1,A2,B1",
           published: true,
-          bankIban: "CZ6508000000192000145399",
+          bankAccounts: { create: [{ currency: "czk", holderName: "Martin Svoboda", iban: "CZ6508000000192000145399" }] },
           packages: {
             create: [
               { name: "Jedna lekce", lessonCount: 1, durationMin: 45, priceCents: 45000 },
@@ -143,6 +149,31 @@ async function main() {
         { enrollmentId: enrollment.id, senderId: tutor.id, body: "Ahoj Petře, posílám slíbená cvičení na minulé časy. Uvidíme se ve středu!", createdAt: new Date(Date.now() - 3 * DAY), readAt: new Date(Date.now() - 2 * DAY) },
         { enrollmentId: enrollment.id, senderId: student.id, body: "Díky, mrknu na to. Můžeme příště probrat i small talk na pohovoru?", createdAt: new Date(Date.now() - 2 * DAY) },
       ],
+    });
+  }
+
+  // zaplacená faktura za předplatné Jany (číselná řada začíná 1)
+  if ((await db.invoice.count({ where: { tutorId } })) === 0) {
+    const year = new Date().getFullYear();
+    await db.invoiceCounter.upsert({ where: { year }, create: { year, last: 1 }, update: {} });
+    const start = new Date(Date.now() - 10 * DAY);
+    await db.invoice.create({
+      data: {
+        number: `${year}0001`,
+        tutorId,
+        kind: "FIRST",
+        plan: "START",
+        currency: "czk",
+        amountCents: 24900,
+        periodStart: start,
+        periodEnd: new Date(Date.now() + 20 * DAY),
+        issuedAt: start,
+        dueAt: new Date(start.getTime() + 14 * DAY),
+        status: "PAID",
+        paidAt: new Date(start.getTime() + 2 * DAY),
+        supplier: JSON.stringify({ name: "Lektorium (ukázka)", lines: ["Ukázková 1, Praha"], companyId: "00000000", account: { holderName: "Lektorium", iban: "CZ6508000000192000145399", bic: "GIBACZPX", bankName: null } }),
+        customer: JSON.stringify({ name: "Jana Nováková", lines: ["Masarykova 12", "602 00 Brno", "CZ"], companyId: "12345678", email: "lektor@example.com" }),
+      },
     });
   }
 

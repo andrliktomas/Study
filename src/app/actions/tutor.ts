@@ -7,7 +7,8 @@ import { z } from "zod";
 import type { FormState } from "@/components/FormMessage";
 import { db } from "@/lib/db";
 import { fromZonedTime } from "date-fns-tz";
-import { normalizeAccount } from "@/lib/bank";
+import { isValidBic, normalizeAccount } from "@/lib/bank";
+import { CURRENCY_CODES } from "@/lib/currencies";
 import { BookingError, moveLesson, serializable } from "@/lib/booking";
 import { CONSUMING_STATUSES } from "@/lib/credits";
 import { formatMoney, hhmmToMinutes, slugify } from "@/lib/format";
@@ -20,7 +21,8 @@ import { cancelFutureLessons, markPurchasePaid } from "@/lib/purchases";
 import { TOO_MANY, rateLimit } from "@/lib/rate-limit";
 import { requireTutor } from "@/lib/session";
 import { absoluteUrl, site } from "@/lib/site";
-import { canAcceptPayments, stripe, stripeEnabled } from "@/lib/stripe";
+import { canAcceptPayments } from "@/lib/payments";
+import { purchasablePackages } from "@/lib/tutors";
 import { randomToken } from "@/lib/tokens";
 
 const optionalUrl = z
@@ -56,11 +58,17 @@ export async function updateTutorProfile(_: FormState, formData: FormData): Prom
   if (published && (languages.length === 0 || parsed.data.bio.length < 50)) {
     return { error: "Pro zveřejnění vyberte alespoň jeden jazyk a napište o sobě aspoň pár vět (50+ znaků)." };
   }
-  if (published && !canAcceptPayments(profile)) {
-    return { error: "Před zveřejněním nastavte, jak vám studenti zaplatí (bankovní účet nebo Stripe) v sekci Platby." };
-  }
-  if (published && (await db.lessonPackage.count({ where: { tutorId: profile.id, active: true } })) === 0) {
-    return { error: "Před zveřejněním přidejte alespoň jeden balíček lekcí." };
+  if (published) {
+    const [accounts, packages] = await Promise.all([
+      db.tutorBankAccount.findMany({ where: { tutorId: profile.id } }),
+      db.lessonPackage.findMany({ where: { tutorId: profile.id, active: true } }),
+    ]);
+    if (!canAcceptPayments({ bankAccounts: accounts })) {
+      return { error: "Před zveřejněním přidejte bankovní účet, na který vám studenti zaplatí (sekce Platby)." };
+    }
+    if (purchasablePackages(packages, accounts).length === 0) {
+      return { error: "Před zveřejněním přidejte balíček lekcí v měně, pro kterou máte bankovní účet." };
+    }
   }
 
   await db.tutorProfile.update({
@@ -80,7 +88,7 @@ const packageSchema = z.object({
   lessonCount: z.coerce.number().int().min(1, "Alespoň 1 lekce").max(100),
   durationMin: z.coerce.number().int().min(15).max(240),
   price: z.coerce.number().min(1, "Cena musí být kladná").max(1_000_000),
-  currency: z.enum(["czk", "eur"]),
+  currency: z.enum(CURRENCY_CODES),
   validityDays: z.coerce.number().int().min(0).max(730).transform((v) => v || null),
 });
 
@@ -275,45 +283,57 @@ export async function setStudentArchived(formData: FormData) {
 
 // ---------- Platby od studentů ----------
 
-export async function startStripeOnboarding() {
-  const { user, profile } = await requireTutor();
-  if (!stripeEnabled) redirect("/dashboard/platby?chyba=stripe");
-  let accountId = profile.stripeAccountId;
-  if (!accountId) {
-    // Standard účet: lektor má vlastní Stripe, platby jdou přímo jemu a poplatky Stripe platí on.
-    const account = await stripe().accounts.create({
-      type: "standard",
-      country: "CZ",
-      email: user.email,
-      business_profile: { url: absoluteUrl(`/lektori/${profile.slug}`), product_description: "Online výuka jazyků" },
-      metadata: { tutorId: profile.id },
-    });
-    accountId = account.id;
-    await db.tutorProfile.update({ where: { id: profile.id }, data: { stripeAccountId: accountId } });
-  }
-  const link = await stripe().accountLinks.create({
-    account: accountId,
-    type: "account_onboarding",
-    refresh_url: absoluteUrl("/dashboard/platby"),
-    return_url: absoluteUrl("/dashboard/platby?navrat=1"),
-  });
-  redirect(link.url);
-}
+const bankAccountSchema = z.object({
+  currency: z.enum(CURRENCY_CODES),
+  holderName: z.string().trim().min(2, "Vyplňte majitele účtu").max(140),
+  account: z.string().trim().min(4, "Vyplňte číslo účtu nebo IBAN").max(64),
+  bic: z.string().trim().toUpperCase().max(11).transform((v) => v.replace(/\s+/g, "") || null),
+  bankName: z.string().trim().max(140).transform((v) => v || null),
+  note: z.string().trim().max(300).transform((v) => v || null),
+});
 
+/** Uloží bankovní účet lektora pro danou měnu (IBAN / český formát / číslo účtu + SWIFT). */
 export async function saveBankAccount(_: FormState, formData: FormData): Promise<FormState> {
   const { profile } = await requireTutor();
-  const raw = String(formData.get("account") ?? "").trim();
-  if (!raw) {
-    await db.tutorProfile.update({ where: { id: profile.id }, data: { bankIban: null } });
-    revalidatePath("/dashboard/platby");
-    return { ok: true, message: "Platba převodem je vypnutá." };
+  const parsed = bankAccountSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const d = parsed.data;
+
+  if (d.bic && !isValidBic(d.bic)) return { error: "Neplatný SWIFT/BIC kód (8 nebo 11 znaků, např. GIBACZPX)." };
+  let iban: string | null = null;
+  let accountNumber: string | null = null;
+  const compact = d.account.replace(/\s+/g, "").toUpperCase();
+  if (/^[A-Z]{2}\d{2}/.test(compact) || compact.includes("/")) {
+    iban = normalizeAccount(d.account);
+    if (!iban) return { error: "Neplatný IBAN nebo číslo účtu. Český účet zadejte ve tvaru 123456789/0800." };
+  } else {
+    // země bez IBAN (např. USA): číslo účtu + SWIFT, routing number do poznámky
+    accountNumber = d.account;
+    if (!d.bic) return { error: "U účtu bez IBAN je potřeba vyplnit SWIFT/BIC." };
   }
-  const iban = normalizeAccount(raw);
-  if (!iban) return { error: "Neplatné číslo účtu. Zadejte ho ve tvaru 123456789/0800 nebo jako IBAN." };
-  await db.tutorProfile.update({ where: { id: profile.id }, data: { bankIban: iban } });
-  revalidatePath("/dashboard/platby");
+  if (!["czk", "eur"].includes(d.currency) && !d.bic) {
+    return { error: "Pro platby v této měně ze zahraničí je potřeba SWIFT/BIC." };
+  }
+
+  const data = { holderName: d.holderName, iban, accountNumber, bic: d.bic, bankName: d.bankName, note: d.note };
+  await db.tutorBankAccount.upsert({
+    where: { tutorId_currency: { tutorId: profile.id, currency: d.currency } },
+    create: { tutorId: profile.id, currency: d.currency, ...data },
+    update: data,
+  });
+  revalidatePath("/dashboard", "layout");
   revalidatePath(`/lektori/${profile.slug}`);
-  return { ok: true, message: "Účet uložen. Studenti teď mohou platit převodem s QR kódem." };
+  redirect(`/dashboard/platby?ulozeno=${d.currency}`);
+}
+
+export async function deleteBankAccount(formData: FormData) {
+  const { profile } = await requireTutor();
+  const currency = String(formData.get("currency"));
+  const pending = await db.purchase.count({ where: { tutorId: profile.id, currency, status: "PENDING", source: "TRANSFER" } });
+  if (pending > 0) redirect("/dashboard/platby?chyba=cekajici");
+  await db.tutorBankAccount.deleteMany({ where: { tutorId: profile.id, currency } });
+  revalidatePath("/dashboard", "layout");
+  revalidatePath(`/lektori/${profile.slug}`);
 }
 
 export async function confirmTransfer(formData: FormData) {
@@ -361,10 +381,6 @@ export async function refundPurchase(_: FormState, formData: FormData): Promise<
   if (lessons <= 0) return { error: "Z tohoto balíčku nezbývají žádné nevyčerpané lekce." };
   const amount = Math.min(purchase.amountCents - purchase.refundedCents, Math.round((purchase.amountCents * lessons) / purchase.lessonsTotal));
 
-  if (purchase.source === "STRIPE" && amount > 0) {
-    if (!purchase.stripePaymentIntentId || !profile.stripeAccountId) return { error: "Platbu nelze dohledat ve Stripe. Vraťte ji prosím přímo ve Stripe." };
-    await stripe().refunds.create({ payment_intent: purchase.stripePaymentIntentId, amount }, { stripeAccount: profile.stripeAccountId });
-  }
   await db.purchase.update({
     where: { id: purchase.id },
     data: {
@@ -374,17 +390,16 @@ export async function refundPurchase(_: FormState, formData: FormData): Promise<
       ...(consumed === 0 ? { status: "REFUNDED" } : {}),
     },
   });
-  const viaCard = purchase.source === "STRIPE";
   await sendMail({
     to: purchase.student.email,
     subject: `Vrácení peněz: ${purchase.packageName}`,
     text: `Dobrý den,
 
 lektor ${user.name} vám vrací ${formatMoney(amount, purchase.currency)} za ${lessons} nevyčerpaných lekcí z balíčku „${purchase.packageName}“.
-${viaCard ? "Peníze se vrátí na kartu, kterou jste platili (obvykle do 5–10 dnů)." : "Peníze vám lektor pošle převodem."}`,
+Peníze vám lektor pošle převodem – pokud nemá číslo vašeho účtu, pošlete mu ho prosím ve zprávě.`,
   });
   revalidatePath("/dashboard", "layout");
-  redirect(`/dashboard/studenti/${purchase.studentId}?vraceno=${amount}&mena=${purchase.currency}&karta=${viaCard ? 1 : 0}`);
+  redirect(`/dashboard/studenti/${purchase.studentId}?vraceno=${amount}&mena=${purchase.currency}`);
 }
 
 const manualSchema = z.object({
@@ -392,7 +407,7 @@ const manualSchema = z.object({
   lessonCount: z.coerce.number().int().min(1, "Alespoň 1 lekce").max(100),
   durationMin: z.coerce.number().int().min(15).max(240),
   amount: z.coerce.number().min(0, "Částka nemůže být záporná").max(1_000_000),
-  currency: z.enum(["czk", "eur"]),
+  currency: z.enum(CURRENCY_CODES),
   note: z.string().trim().min(3, "Uveďte důvod (např. platba v hotovosti, převod předplacených lekcí)").max(300),
 });
 

@@ -49,7 +49,7 @@ export function DashboardNav({
   };
 
   return (
-    <aside className="lg:sticky lg:top-24 lg:self-start">
+    <aside className="lg:sticky lg:top-24 lg:self-start print:hidden">
       <nav className="flex gap-1 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible" aria-label="Navigace v přehledu">
         {isTutor ? TUTOR_LINKS.map((l) => item(l.href, l.label, l.icon)) : item("/dashboard", "Přehled", "🏠")}
         {item("/dashboard/zpravy", "Zprávy", "💬", unread)}

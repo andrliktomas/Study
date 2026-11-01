@@ -19,7 +19,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   ]);
 
   return (
-    <div className="container-page grid gap-8 py-8 lg:grid-cols-[230px_1fr]">
+    <div className="container-page grid gap-8 py-8 lg:grid-cols-[230px_1fr] print:block print:p-0">
       <DashboardNav
         isTutor={Boolean(profile)}
         isAdmin={user.role === "ADMIN"}

@@ -54,6 +54,12 @@ test("lektor nastaví profil, balíček, rozvrh, účet a fotku a zveřejní se"
   await tutor.selectOption("#valid-new", "90");
   await tutor.click("text=Přidat balíček");
   await expect(tutor.getByText("Balíček uložen")).toBeVisible();
+  await tutor.fill("#name-new", "5 lessons (EUR)");
+  await tutor.fill("#price-new", "100");
+  await tutor.selectOption("#cur-new", "eur");
+  await tutor.click("text=Přidat balíček");
+  await expect(tutor.getByText("5 lessons (EUR)")).toBeVisible();
+  await expect(tutor.getByText("Chybí účet v EUR")).toBeVisible();
 
   await tutor.goto("/dashboard/dostupnost");
   const adds = tutor.locator("text=+ Přidat blok");
@@ -62,12 +68,24 @@ test("lektor nastaví profil, balíček, rozvrh, účet a fotku a zveřejní se"
   await expect(tutor.getByText("Dostupnost uložena")).toBeVisible();
 
   await tutor.goto("/dashboard/platby");
-  await tutor.fill("#account", "1234/0800");
+  await expect(tutor.locator("#ba-holder-new")).toHaveValue("Eva Testová");
+  await tutor.fill("#ba-account-new", "1234/0800");
   await tutor.click("text=Uložit účet");
-  await expect(tutor.getByText("Neplatné číslo účtu")).toBeVisible();
-  await tutor.fill("#account", "19-2000145399/0800");
+  await expect(tutor.getByText("Neplatný IBAN nebo číslo účtu")).toBeVisible();
+  await tutor.fill("#ba-account-new", "19-2000145399/0800");
   await tutor.click("text=Uložit účet");
-  await expect(tutor.getByText("Studenti teď mohou platit převodem")).toBeVisible();
+  await expect(tutor.getByText("Účet pro CZK uložen")).toBeVisible();
+  await expect(tutor.getByText("CZ65 0800 0000 1920 0014 5399")).toBeVisible();
+
+  // účet v eurech pro zahraniční studenty
+  await tutor.click("summary:has-text('Přidat účet')");
+  await tutor.selectOption("#ba-cur-new", "eur");
+  await tutor.fill("#ba-account-new", "DE89 3704 0044 0532 0130 00");
+  await tutor.fill("#ba-bic-new", "cobadeff");
+  await tutor.click("form:has(#ba-account-new) button:has-text('Uložit účet')");
+  await expect(tutor.getByText("Neplatný SWIFT/BIC")).toHaveCount(0);
+  await expect(tutor.getByText("Účet pro EUR uložen")).toBeVisible();
+  await expect(tutor.getByText("Chybí účet v EUR")).toHaveCount(0);
 
   await tutor.goto("/dashboard/nastaveni");
   await tutor.locator("input[type=file]").setInputFiles({ name: "foto.png", mimeType: "image/png", buffer: PNG_1PX });
@@ -106,9 +124,20 @@ test("student přijme pozvánku, zaregistruje se a ověří e-mail", async () =>
 });
 
 test("platba převodem s QR kódem a potvrzení lektorem", async () => {
-  await student.click("button:has-text('Převodem (QR)')");
+  // platba v eurech: IBAN, SWIFT a SEPA QR
+  await student.locator("li", { hasText: "5 lessons (EUR)" }).locator("button:has-text('Koupit')").click();
+  await student.waitForURL("**/platba/**");
+  await expect(student.getByText("DE89 3704 0044 0532 0130 00")).toBeVisible();
+  await expect(student.getByText("COBADEFF")).toBeVisible();
+  await expect(student.getByText(/SEPA QR/)).toBeVisible();
+  await expect(student.getByText(/variantu OUR/)).toBeVisible();
+  await student.click("button:has-text('Zrušit objednávku')");
+  await student.waitForURL(/\/dashboard\/lektor\/[^/]+$/);
+
+  await student.locator("li", { hasText: "Balíček 5 lekcí" }).locator("button:has-text('Koupit')").click();
   await student.waitForURL("**/platba/**");
   await expect(student.locator("[aria-label='QR kód pro platbu'] svg")).toBeVisible();
+  await expect(student.getByText(/QR Platba/)).toBeVisible();
   await expect(student.getByText("19-2000145399/0800").first()).toBeVisible();
   const vs = await db.purchase.findFirstOrThrow({ where: { student: { email: studentEmail }, status: "PENDING" } });
   await expect(student.getByText(vs.variableSymbol!).first()).toBeVisible();
@@ -214,14 +243,43 @@ test("limit tarifu podle počtu studentů a přechod na vyšší tarif", async (
   const outsider = await (await tutor.context().browser()!.newContext()).newPage();
   await registerAndVerify(outsider, { name: "Zvědavec", email: unique("zvedavec"), role: "student" });
   await outsider.goto(`/lektori/${profile.slug}`);
-  await outsider.click("button:has-text('Kartou')");
+  await outsider.locator("button:has-text('Koupit')").first().click();
   await expect(outsider.getByText("nepřijímá nové studenty")).toBeVisible();
 
   await tutor.goto("/dashboard/predplatne");
   await expect(tutor.getByText("3 / 3")).toBeVisible();
+  // placený tarif vyžaduje fakturační údaje
   await tutor.locator("form:has(input[value=START]) button").click();
-  await expect(tutor.getByText("Tarif byl změněn")).toBeVisible();
+  await expect(tutor.getByText("Nejdřív prosím vyplňte fakturační údaje")).toBeVisible();
+  await tutor.fill("#b-street", "Lektorská 5");
+  await tutor.fill("#b-city", "Olomouc");
+  await tutor.fill("#b-zip", "779 00");
+  await tutor.fill("#b-ico", "87654321");
+  await tutor.click("button:has-text('Uložit údaje')");
+  await expect(tutor.getByText("Fakturační údaje uloženy")).toBeVisible();
+
+  await tutor.locator("form:has(input[value=START]) button").click();
+  await expect(tutor.getByText(/Tarif Start platí hned/)).toBeVisible();
   await expect(tutor.getByText("3 / 10")).toBeVisible();
+  const invoice = await db.invoice.findFirstOrThrow({ where: { tutor: { user: { email: tutorEmail } }, status: "ISSUED" } });
+  expect(invoice.amountCents).toBe(24900);
+  await expect(tutor.getByText(`Faktura ${invoice.number} čeká na úhradu`)).toBeVisible();
+  await lastMail(tutorEmail, new RegExp(`Faktura ${invoice.number}`));
+  await tutor.click("text=Zobrazit fakturu a QR");
+  await expect(tutor.getByRole("heading", { name: `Faktura č. ${invoice.number}` })).toBeVisible();
+  await expect(tutor.locator("[aria-label='QR kód pro platbu'] svg")).toBeVisible();
+  await expect(tutor.getByText("Olomouc")).toBeVisible();
+
+  // provozovatel spáruje platbu v administraci
+  const admin = await (await tutor.context().browser()!.newContext()).newPage();
+  await login(admin, "admin@example.com");
+  await admin.goto("/admin/fakturace");
+  await admin.locator("tr", { hasText: invoice.number }).locator("button:has-text('Zaplaceno')").click();
+  await expect(admin.locator("tr", { hasText: invoice.number })).toHaveCount(0);
+  await tutor.goto("/dashboard/predplatne");
+  await expect(tutor.getByText(/zaplaceno do/)).toBeVisible();
+  await lastMail(tutorEmail, /Platba přijata – faktura/);
+
   // na Zdarma s více než 3 studenty přejít nejde
   await db.enrollment.create({ data: { tutorId: profile.id, studentId: (await db.user.create({ data: { email: unique("ctvrty"), name: "Čtvrtý" } })).id } });
   await tutor.reload();

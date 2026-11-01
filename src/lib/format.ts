@@ -49,3 +49,11 @@ export function slugify(s: string) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
 }
+
+/** Součet částek po měnách – různé měny nesčítáme, např. „2 000 Kč · 150 €“. */
+export function formatTotals(rows: { amountCents: number; currency: string }[]) {
+  const totals = new Map<string, number>();
+  for (const r of rows) totals.set(r.currency, (totals.get(r.currency) ?? 0) + r.amountCents);
+  if (totals.size === 0) return formatMoney(0);
+  return [...totals.entries()].map(([c, cents]) => formatMoney(cents, c)).join(" · ");
+}

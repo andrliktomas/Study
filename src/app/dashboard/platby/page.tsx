@@ -1,36 +1,27 @@
-import { confirmTransfer, rejectTransfer, startStripeOnboarding } from "@/app/actions/tutor";
+import { confirmTransfer, deleteBankAccount, rejectTransfer } from "@/app/actions/tutor";
 import { Notice, PageHeader, Stat } from "@/components/PageHeader";
 import { SubmitButton } from "@/components/SubmitButton";
 import { formatIban, ibanToCzAccount } from "@/lib/bank";
+import { CURRENCIES, currencyLabel } from "@/lib/currencies";
 import { db } from "@/lib/db";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatMoney, formatTotals } from "@/lib/format";
+import { paymentReference } from "@/lib/payments";
 import { requireTutor } from "@/lib/session";
-import { fakePaymentsEnabled, stripe, stripeEnabled } from "@/lib/stripe";
 import { BankAccountForm } from "./BankAccountForm";
 
 const SOURCE: Record<string, { label: string; cls: string }> = {
-  STRIPE: { label: "Karta", cls: "bg-brand-100 text-brand-800" },
   TRANSFER: { label: "Převod", cls: "bg-indigo-100 text-indigo-800" },
   MANUAL: { label: "Ručně", cls: "bg-amber-100 text-amber-800" },
-  DEV: { label: "Test", cls: "bg-slate-100 text-ink-soft" },
+  STRIPE: { label: "Karta", cls: "bg-slate-100 text-ink-soft" },
 };
 
-export default async function PaymentsPage(props: { searchParams: Promise<{ navrat?: string; chyba?: string }> }) {
+export default async function PaymentsPage(props: { searchParams: Promise<{ chyba?: string; ulozeno?: string }> }) {
   const searchParams = await props.searchParams;
-  const { user, profile: initialProfile } = await requireTutor();
-  let profile = initialProfile;
-
-  // Po návratu z registrace ve Stripe stav účtu rovnou ověříme (webhook může dorazit později).
-  if (stripeEnabled && profile.stripeAccountId && (searchParams.navrat || !profile.stripeOnboarded)) {
-    const acct = await stripe().accounts.retrieve(profile.stripeAccountId);
-    const onboarded = Boolean(acct.charges_enabled && acct.details_submitted);
-    if (onboarded !== profile.stripeOnboarded) {
-      profile = await db.tutorProfile.update({ where: { id: profile.id }, data: { stripeOnboarded: onboarded } });
-    }
-  }
-
+  const { user, profile } = await requireTutor();
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const [pending, purchases, month] = await Promise.all([
+  const [accounts, packages, pending, purchases, month] = await Promise.all([
+    db.tutorBankAccount.findMany({ where: { tutorId: profile.id }, orderBy: { createdAt: "asc" } }),
+    db.lessonPackage.findMany({ where: { tutorId: profile.id, active: true }, select: { currency: true } }),
     db.purchase.findMany({
       where: { tutorId: profile.id, status: "PENDING", source: "TRANSFER" },
       include: { student: { select: { name: true, email: true } } },
@@ -42,65 +33,94 @@ export default async function PaymentsPage(props: { searchParams: Promise<{ navr
       orderBy: { paidAt: "desc" },
       take: 100,
     }),
-    db.purchase.aggregate({ where: { tutorId: profile.id, status: "PAID", paidAt: { gte: monthStart } }, _sum: { amountCents: true, refundedCents: true } }),
+    db.purchase.findMany({ where: { tutorId: profile.id, status: "PAID", paidAt: { gte: monthStart } }, select: { amountCents: true, refundedCents: true, currency: true } }),
   ]);
-  const total = purchases.reduce((s, p) => s + p.amountCents - p.refundedCents, 0);
+  const net = (rows: { amountCents: number; refundedCents: number; currency: string }[]) => rows.map((r) => ({ amountCents: r.amountCents - r.refundedCents, currency: r.currency }));
+  const missing = [...new Set(packages.map((p) => p.currency))].filter((c) => !accounts.some((a) => a.currency === c));
+  const freeCurrencies = CURRENCIES.filter((c) => !accounts.some((a) => a.currency === c.code));
 
   return (
     <>
-      <PageHeader title="Platby od studentů" description="Peníze jdou přímo vám – platforma si z lekcí nebere žádnou provizi." />
-      {searchParams.chyba === "stripe" && <Notice tone="error">Platby kartou nejsou na serveru nakonfigurovány (chybí STRIPE_SECRET_KEY).</Notice>}
-      {fakePaymentsEnabled && <Notice tone="warn">Vývojový režim: platby kartou se simulují a lekce se připíší okamžitě.</Notice>}
+      <PageHeader title="Platby od studentů" description="Studenti platí převodem přímo na váš účet – i ze zahraničí. Platforma si z lekcí nebere nic." />
+      {searchParams.ulozeno && (
+        <Notice tone="success">Účet pro {searchParams.ulozeno.toUpperCase()} uložen. Studenti teď mohou platit převodem v této měně.</Notice>
+      )}
+      {searchParams.chyba === "cekajici" && <Notice tone="error">Účet nelze smazat – v jeho měně čekají nepotvrzené platby.</Notice>}
+      {accounts.length === 0 && (
+        <Notice tone="warn">Přidejte bankovní účet, jinak si u vás studenti nemohou nic koupit a profil nepůjde zveřejnit.</Notice>
+      )}
+      {missing.length > 0 && (
+        <Notice tone="warn">
+          Máte balíčky v měně {missing.map((c) => c.toUpperCase()).join(", ")}, ale pro ni nemáte účet – tyto balíčky studenti nevidí.
+        </Notice>
+      )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="card">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-semibold">Převodem s QR kódem</h2>
-            <span className={`badge ${profile.bankIban ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-ink-faint"}`}>{profile.bankIban ? "Zapnuto" : "Vypnuto"}</span>
-          </div>
-          <p className="mt-1 text-sm text-ink-soft">
-            Student dostane QR kód pro mobilní bankovnictví s variabilním symbolem. Až peníze dorazí, potvrdíte platbu a lekce se mu připíší. Bez poplatků.
-          </p>
-          {profile.bankIban && (
-            <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
-              {ibanToCzAccount(profile.bankIban) ?? ""} <span className="text-ink-faint">· {formatIban(profile.bankIban)}</span>
-            </p>
-          )}
-          <div className="mt-4"><BankAccountForm current={profile.bankIban ? ibanToCzAccount(profile.bankIban) ?? profile.bankIban : ""} /></div>
-        </section>
-
-        <section className="card">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-semibold">Kartou přes Stripe</h2>
-            <span className={`badge ${profile.stripeOnboarded ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-ink-faint"}`}>{profile.stripeOnboarded ? "Aktivní" : "Nepřipojeno"}</span>
-          </div>
-          <p className="mt-1 text-sm text-ink-soft">
-            Studenti zaplatí kartou, Apple Pay nebo Google Pay. Platby jdou na váš vlastní Stripe účet a poplatky Stripe (u evropských karet zhruba 1,5 % + pevná částka) platíte přímo Stripe.
-          </p>
-          <div className="mt-4">
-            {!stripeEnabled ? (
-              <p className="text-sm text-ink-faint">Platby kartou nejsou na serveru zapnuté.</p>
-            ) : profile.stripeOnboarded ? (
-              <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="btn-secondary">Otevřít Stripe ↗</a>
-            ) : (
-              <form action={startStripeOnboarding}>
-                <SubmitButton pendingText="Přesměrovávám…">{profile.stripeAccountId ? "Dokončit nastavení Stripe" : "Připojit Stripe"}</SubmitButton>
-              </form>
-            )}
-          </div>
-        </section>
-      </div>
+      <section className="card">
+        <h2 className="font-semibold">Vaše bankovní účty</h2>
+        <p className="mt-1 max-w-3xl text-sm text-ink-soft">
+          Pro každou měnu, ve které prodáváte lekce, jeden účet. Studentům ukážeme IBAN, SWIFT/BIC a referenci platby; u CZK na český účet
+          i QR Platbu a u EUR QR kód pro SEPA převod.
+        </p>
+        {accounts.length > 0 && (
+          <ul className="mt-5 grid gap-4 md:grid-cols-2">
+            {accounts.map((a) => (
+              <li key={a.id} className="rounded-xl border border-slate-200 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">{currencyLabel(a.currency)}</p>
+                    <p className="text-sm text-ink-soft">{a.holderName}{a.bankName && ` · ${a.bankName}`}</p>
+                  </div>
+                  <form action={deleteBankAccount}>
+                    <input type="hidden" name="currency" value={a.currency} />
+                    <SubmitButton className="btn-ghost px-2 py-1 text-xs text-red-600" pendingText="…">Odebrat</SubmitButton>
+                  </form>
+                </div>
+                <dl className="mt-3 space-y-1 text-sm">
+                  {a.iban && <div className="flex gap-2"><dt className="w-24 text-ink-faint">IBAN</dt><dd className="font-medium">{formatIban(a.iban)}</dd></div>}
+                  {a.iban && ibanToCzAccount(a.iban) && <div className="flex gap-2"><dt className="w-24 text-ink-faint">Číslo účtu</dt><dd>{ibanToCzAccount(a.iban)}</dd></div>}
+                  {a.accountNumber && <div className="flex gap-2"><dt className="w-24 text-ink-faint">Číslo účtu</dt><dd className="font-medium">{a.accountNumber}</dd></div>}
+                  {a.bic && <div className="flex gap-2"><dt className="w-24 text-ink-faint">SWIFT/BIC</dt><dd>{a.bic}</dd></div>}
+                  {a.note && <div className="flex gap-2"><dt className="w-24 text-ink-faint">Poznámka</dt><dd>{a.note}</dd></div>}
+                </dl>
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm text-brand-600">Upravit</summary>
+                  <div className="mt-3">
+                    <BankAccountForm
+                      currencies={[{ code: a.currency, label: currencyLabel(a.currency) }]}
+                      initial={{ currency: a.currency, holderName: a.holderName, account: a.iban ?? a.accountNumber ?? "", bic: a.bic ?? "", bankName: a.bankName ?? "", note: a.note ?? "" }}
+                    />
+                  </div>
+                </details>
+              </li>
+            ))}
+          </ul>
+        )}
+        {freeCurrencies.length > 0 && (
+          <details className="mt-5 rounded-xl bg-brand-50/60 p-4" open={accounts.length === 0}>
+            <summary className="cursor-pointer font-medium text-brand-700">+ Přidat účet</summary>
+            <div className="mt-4 max-w-xl">
+              <BankAccountForm
+                key={freeCurrencies.map((c) => c.code).join()}
+                currencies={freeCurrencies.map((c) => ({ code: c.code, label: currencyLabel(c.code) }))}
+                initial={{ currency: freeCurrencies[0].code, holderName: profile.legalName ?? user.name ?? "", account: "", bic: "", bankName: "", note: "" }}
+              />
+            </div>
+          </details>
+        )}
+      </section>
 
       {pending.length > 0 && (
         <section className="card mt-6 border-indigo-200">
           <h2 className="font-semibold">Čeká na platbu převodem ({pending.length})</h2>
-          <p className="mt-1 text-sm text-ink-soft">Zkontrolujte ve svém bankovnictví platbu s daným variabilním symbolem a potvrďte ji.</p>
+          <p className="mt-1 text-sm text-ink-soft">Zkontrolujte v bankovnictví platbu s daným variabilním symbolem nebo referencí a potvrďte ji.</p>
           <ul className="mt-4 divide-y divide-slate-100">
             {pending.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{p.student.name ?? p.student.email} · {p.packageName}</p>
-                  <p className="text-ink-faint">VS <strong className="text-ink">{p.variableSymbol}</strong> · {formatMoney(p.amountCents, p.currency)} · objednáno {formatDate(p.createdAt, user.timezone)}</p>
+                  <p className="text-ink-faint">
+                    VS <strong className="text-ink">{p.variableSymbol}</strong> / ref. {paymentReference(p.variableSymbol!)} · <strong className="text-ink">{formatMoney(p.amountCents, p.currency)}</strong> · objednáno {formatDate(p.createdAt, user.timezone)}
+                  </p>
                 </div>
                 <form action={confirmTransfer}>
                   <input type="hidden" name="purchaseId" value={p.id} />
@@ -117,8 +137,8 @@ export default async function PaymentsPage(props: { searchParams: Promise<{ navr
       )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <Stat label="Tento měsíc" value={formatMoney((month._sum.amountCents ?? 0) - (month._sum.refundedCents ?? 0))} />
-        <Stat label="Celkem (posledních 100 plateb)" value={formatMoney(total)} hint="po odečtení vrácených částek" />
+        <Stat label="Tento měsíc" value={formatTotals(net(month))} />
+        <Stat label="Celkem (posledních 100 plateb)" value={formatTotals(net(purchases))} hint="po odečtení vrácených částek" />
       </div>
 
       <div className="card mt-6 overflow-x-auto p-0">
@@ -130,10 +150,10 @@ export default async function PaymentsPage(props: { searchParams: Promise<{ navr
             {purchases.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-ink-faint">Zatím žádné platby.</td></tr>}
             {purchases.map((p) => (
               <tr key={p.id} className="hover:bg-brand-50/40">
-                <td className="p-4 whitespace-nowrap">{p.paidAt && formatDate(p.paidAt, user.timezone)}</td>
+                <td className="whitespace-nowrap p-4">{p.paidAt && formatDate(p.paidAt, user.timezone)}</td>
                 <td className="p-4">{p.student.name ?? p.student.email}</td>
                 <td className="p-4">{p.packageName}{p.note && <span className="block text-xs text-ink-faint">{p.note}</span>}</td>
-                <td className="p-4"><span className={`badge ${SOURCE[p.source]?.cls}`}>{SOURCE[p.source]?.label ?? p.source}</span></td>
+                <td className="p-4"><span className={`badge ${SOURCE[p.source]?.cls ?? ""}`}>{SOURCE[p.source]?.label ?? p.source}</span></td>
                 <td className="p-4 text-right font-semibold">
                   {formatMoney(p.amountCents, p.currency)}
                   {p.refundedCents > 0 && <span className="block text-xs font-normal text-red-600">vráceno {formatMoney(p.refundedCents, p.currency)}</span>}

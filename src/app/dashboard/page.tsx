@@ -5,10 +5,10 @@ import { CreditBar, LessonStatus, Notice, PageHeader, Stat } from "@/components/
 import { SubmitButton } from "@/components/SubmitButton";
 import { getCreditSummary } from "@/lib/credits";
 import { db } from "@/lib/db";
-import { formatDateTime, formatMoney } from "@/lib/format";
+import { formatDateTime, formatTotals } from "@/lib/format";
 import { effectivePlan } from "@/lib/plans";
 import { requireUser } from "@/lib/session";
-import { canAcceptPayments } from "@/lib/stripe";
+import { canAcceptPayments } from "@/lib/payments";
 
 export default async function DashboardHome(props: { searchParams: Promise<Record<string, string | undefined>> }) {
   const searchParams = await props.searchParams;
@@ -29,6 +29,7 @@ async function TutorOverview({ userId, tz, name }: { userId: string; tz: string;
   const profile = await db.tutorProfile.findUniqueOrThrow({
     where: { userId },
     include: {
+      bankAccounts: { select: { currency: true } },
       _count: {
         select: {
           enrollments: { where: { archivedAt: null } },
@@ -48,9 +49,9 @@ async function TutorOverview({ userId, tz, name }: { userId: string; tz: string;
       orderBy: { startsAt: "asc" },
       take: 6,
     }),
-    db.purchase.aggregate({
+    db.purchase.findMany({
       where: { tutorId: profile.id, status: "PAID", paidAt: { gte: monthStart } },
-      _sum: { amountCents: true, refundedCents: true },
+      select: { amountCents: true, refundedCents: true, currency: true },
     }),
     db.lesson.count({ where: { tutorId: profile.id, status: "SCHEDULED", endsAt: { lt: new Date() } } }),
   ]);
@@ -59,12 +60,12 @@ async function TutorOverview({ userId, tz, name }: { userId: string; tz: string;
     { done: profile.published, label: "Vyplnit a zveřejnit profil", href: "/dashboard/profil" },
     { done: profile._count.packages > 0, label: "Nastavit balíčky lekcí", href: "/dashboard/balicky" },
     { done: profile._count.availability > 0, label: "Nastavit, kdy učíte", href: "/dashboard/dostupnost" },
-    { done: canAcceptPayments(profile), label: "Nastavit platby (převod nebo karta)", href: "/dashboard/platby" },
+    { done: canAcceptPayments(profile), label: "Přidat bankovní účet pro platby", href: "/dashboard/platby" },
     { done: profile.calendarSync, label: "Připojit Google Kalendář", href: "/dashboard/nastaveni" },
     { done: profile._count.enrollments > 0, label: "Pozvat prvního studenta", href: "/dashboard/studenti" },
   ];
   const todo = checklist.filter((c) => !c.done);
-  const net = (revenue._sum.amountCents ?? 0) - (revenue._sum.refundedCents ?? 0);
+  const net = formatTotals(revenue.map((r) => ({ amountCents: r.amountCents - r.refundedCents, currency: r.currency })));
   const full = plan.maxStudents !== null && profile._count.enrollments >= plan.maxStudents;
 
   return (
@@ -105,7 +106,7 @@ async function TutorOverview({ userId, tz, name }: { userId: string; tz: string;
       )}
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Aktivní studenti" value={`${profile._count.enrollments} / ${plan.maxStudents ?? "∞"}`} hint={`tarif ${plan.name}`} />
-        <Stat label="Tržby tento měsíc" value={formatMoney(net)} hint="bez provize – vše je vaše" />
+        <Stat label="Tržby tento měsíc" value={net} hint="bez provize – vše je vaše" />
         <Stat label="Lekce k doplnění" value={pendingNotes} hint="proběhlé lekce bez uzavření" />
       </div>
       <div className="card mt-6">

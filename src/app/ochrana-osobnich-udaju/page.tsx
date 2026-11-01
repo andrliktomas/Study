@@ -26,8 +26,8 @@ export default function PrivacyPage() {
         <li><strong>Účet:</strong> jméno, e-mail, heslo (pouze v zašifrované podobě), profilová fotka a ID z Google účtu při přihlášení přes Google, časové pásmo.</li>
         <li><strong>Profil lektora:</strong> údaje, které lektor sám zveřejní (popis, jazyky, ceník, město).</li>
         <li><strong>Výuka:</strong> rezervace, stav lekcí, poznámky, domácí úkoly, hodnocení.</li>
-        <li><strong>Platby:</strong> přehled nákupů a částek, u plateb převodem variabilní symbol. Údaje o platební kartě zpracovává výhradně Stripe, my je nevidíme.</li>
-        <li><strong>Lektoři:</strong> číslo bankovního účtu pro QR platby, fakturační a daňové údaje (jméno nebo firma, adresa, IČO, DIČ, případně datum narození) pro faktury za předplatné a hlášení DAC7.</li>
+        <li><strong>Platby:</strong> přehled nákupů a částek a variabilní symbol. Platby probíhají převodem mezi studentem a lektorem; údaje o platební kartě nezpracováváme.</li>
+        <li><strong>Lektoři:</strong> bankovní účty pro platby studentů (majitel, IBAN / číslo účtu, SWIFT/BIC, banka), fakturační a daňové údaje (jméno nebo firma, adresa, IČO, DIČ, případně datum narození) pro faktury za předplatné a hlášení DAC7.</li>
         <li><strong>Zprávy a soubory:</strong> zprávy mezi lektorem a studentem a sdílené materiály.</li>
         <li><strong>Google Kalendář:</strong> pokud jej lektor připojí, čteme pouze informaci obsazeno/volno a vytváříme události s lekcemi. Obsah ostatních událostí nečteme.</li>
         <li><strong>Technické údaje:</strong> IP adresa a záznamy o přihlášení pro zajištění bezpečnosti.</li>
@@ -43,7 +43,6 @@ export default function PrivacyPage() {
 
       <h2>4. Příjemci a zpracovatelé</h2>
       <ul>
-        <li>Stripe Payments Europe, Ltd. – platby předplatného a platby kartou na účty lektorů.</li>
         <li>Finanční správa ČR – hlášení DAC7 o lektorech (jen údaje lektorů).</li>
         <li>Google Ireland Ltd. – přihlášení přes Google a Google Kalendář (jen pokud je uživatel využije).</li>
         <li>Poskytovatel hostingu a databáze a poskytovatel rozesílání e-mailů.</li>

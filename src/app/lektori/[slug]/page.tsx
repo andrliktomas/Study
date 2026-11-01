@@ -11,8 +11,7 @@ import { db } from "@/lib/db";
 import { languageByCode, parseList } from "@/lib/languages";
 import { effectivePlan } from "@/lib/plans";
 import { absoluteImage, absoluteUrl } from "@/lib/site";
-import { cardPaymentsAvailable } from "@/lib/stripe";
-import { publicTutorWhere } from "@/lib/tutors";
+import { publicTutorWhere, purchasablePackages } from "@/lib/tutors";
 import { Suspense } from "react";
 import { QueryNotice } from "@/components/QueryNotice";
 
@@ -30,6 +29,7 @@ async function getTutor(slug: string) {
       user: { select: { name: true, image: true, timezone: true } },
       reviews: { where: { hidden: false }, include: { student: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 50 },
       packages: { where: { active: true }, orderBy: [{ sortOrder: "asc" }, { priceCents: "asc" }] },
+      bankAccounts: { select: { currency: true } },
       _count: { select: { enrollments: { where: { archivedAt: null } }, lessons: { where: { status: "COMPLETED" } } } },
     },
   });
@@ -55,6 +55,7 @@ export default async function TutorPage(props: { params: Promise<{ slug: string 
   const t = await getTutor(params.slug);
   if (!t) notFound();
   const plan = effectivePlan(t);
+  const packages = purchasablePackages(t.packages, t.bankAccounts);
   const full = plan.maxStudents !== null && t._count.enrollments >= plan.maxStudents;
   const langs = parseList(t.languages).map((c) => languageByCode(c)).filter((l) => l !== undefined);
   const ratingCount = t.reviews.length;
@@ -86,7 +87,7 @@ export default async function TutorPage(props: { params: Promise<{ slug: string 
               inLanguage: langs.map((l) => l.code),
               provider: { "@id": personId },
               educationalLevel: parseList(t.levels).join(", ") || undefined,
-              offers: t.packages.map((p) => ({
+              offers: packages.map((p) => ({
                 "@type": "Offer",
                 name: p.name,
                 category: "Paid",
@@ -186,11 +187,8 @@ export default async function TutorPage(props: { params: Promise<{ slug: string 
                 Lektor má momentálně plnou kapacitu a nové studenty nepřijímá. Stávající studenti si lekce kupují normálně.
               </p>
             )}
-            <PackageList
-              packages={t.packages}
-              returnTo={`/lektori/${t.slug}`}
-              payment={{ card: cardPaymentsAvailable(t), transfer: Boolean(t.bankIban) }}
-            />
+            <PackageList packages={packages} returnTo={`/lektori/${t.slug}`} />
+            <p className="mt-4 text-xs text-ink-faint">Platí se převodem přímo lektorovi – i ze zahraničí (IBAN/SWIFT).</p>
           </div>
         </aside>
       </div>

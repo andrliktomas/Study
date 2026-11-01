@@ -8,7 +8,6 @@ import { AVATAR_MAX_BYTES, detectMime } from "@/lib/files";
 import { cancelFutureLessons } from "@/lib/purchases";
 import { TOO_MANY, rateLimit } from "@/lib/rate-limit";
 import { requireUser } from "@/lib/session";
-import { stripe, stripeEnabled } from "@/lib/stripe";
 
 export async function uploadAvatar(_: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
@@ -65,9 +64,8 @@ export async function deleteAccount(_: FormState, formData: FormData): Promise<F
 
   const profile = await db.tutorProfile.findUnique({ where: { userId: user.id } });
   if (profile) {
-    if (stripeEnabled && profile.stripeSubscriptionId) {
-      await stripe().subscriptions.cancel(profile.stripeSubscriptionId).catch((e) => console.error("[delete] zrušení předplatného", e));
-    }
+    // nezaplacené faktury stornujeme; vystavené a zaplacené faktury zůstávají v účetnictví (bez vazby na účet)
+    await db.invoice.updateMany({ where: { tutorId: profile.id, status: "ISSUED" }, data: { status: "CANCELLED" } });
     await cancelFutureLessons({ ids: (await db.lesson.findMany({ where: { tutorId: profile.id }, select: { id: true } })).map((l) => l.id) }, {
       reason: "Lektor zrušil svůj účet na platformě, naplánované lekce proto byly zrušeny. Ohledně nevyčerpaných lekcí ho prosím kontaktujte.",
     });
