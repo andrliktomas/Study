@@ -87,7 +87,8 @@ Vlastní Chromium lze předat přes `PLAYWRIGHT_CHROMIUM_EXECUTABLE`. Vše běž
 ## Nasazení ukázky na Vercel (bez SMTP a dalších služeb)
 
 1. **Databáze** – na [neon.tech](https://neon.tech) založte zdarma projekt (region *Frankfurt*) a zkopírujte connection string
-   (s vypnutým „Connection pooling“).
+   (s vypnutým „Connection pooling“). Funguje i připojení přes Vercel → *Storage* → Neon – aplikace pozná i proměnné
+   `POSTGRES_PRISMA_URL` / `DATABASE_URL_UNPOOLED`, které integrace vytvoří.
 2. **Vercel** – na [vercel.com](https://vercel.com) *Add New → Project* → importujte tento repozitář a do *Environment Variables* vložte:
    | Proměnná | Hodnota |
    |---|---|
