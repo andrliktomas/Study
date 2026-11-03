@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/format";
 import { studentCapacity } from "@/lib/plans";
 import { requireTutor } from "@/lib/session";
 import { absoluteUrl } from "@/lib/site";
+import { EXPORTS } from "@/lib/tutor-export";
 import { InviteForm } from "./InviteForm";
 
 export default async function StudentsPage(props: { searchParams: Promise<{ archiv?: string }> }) {
@@ -88,6 +89,19 @@ export default async function StudentsPage(props: { searchParams: Promise<{ arch
               </div>
             </div>
           )}
+          <div className="card">
+            <h2 className="font-semibold">Export do tabulky</h2>
+            <p className="mt-1 text-sm text-ink-soft">
+              Vaše data patří vám. Stáhněte si je pro Excel nebo Google Tabulky – i se zbývajícími lekcemi a poznámkami.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {Object.entries(EXPORTS).map(([key, label]) => (
+                <a key={key} href={`/api/lektor/export?co=${key}`} download className="btn-ghost border border-slate-200 text-sm">
+                  ⬇ {label}
+                </a>
+              ))}
+            </div>
+          </div>
           {invitations.length > 0 && (
             <div className="card">
               <h2 className="font-semibold">Čekající pozvánky</h2>

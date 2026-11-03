@@ -131,3 +131,29 @@ test("změna hesla odhlásí všechna zařízení", async ({ browser }) => {
   await login(second, email, "noveheslo123");
   await expect(second).toHaveURL(/\/dashboard/);
 });
+
+test("lektor si stáhne studenty, lekce a platby do tabulky", async ({ page, browser }) => {
+  await login(page, "lektor@example.com");
+  await page.goto("/dashboard/studenti");
+  await expect(page.getByRole("heading", { name: "Export do tabulky" })).toBeVisible();
+  const [download] = await Promise.all([page.waitForEvent("download"), page.locator(`a[href="/api/lektor/export?co=studenti"]`).click()]);
+  expect(download.suggestedFilename()).toMatch(/^lektorium-studenti-\d{4}-\d{2}-\d{2}\.csv$/);
+
+  for (const co of ["studenti", "lekce", "platby"]) {
+    const res = await page.request.get(`/api/lektor/export?co=${co}`);
+    expect(res.status()).toBe(200);
+    expect(res.headers()["content-type"]).toContain("text/csv");
+    const text = await res.text();
+    expect(text.startsWith("﻿")).toBe(true);
+  }
+  const students = await (await page.request.get("/api/lektor/export?co=studenti")).text();
+  expect(students).toContain("Jméno;E-mail;Zbývající lekce;Délka lekce (min);Poznámka");
+  expect(students).toContain("student@example.com");
+  expect((await page.request.get("/api/lektor/export?co=neco")).status()).toBe(400);
+
+  // student ani nepřihlášený export nedostanou
+  const studentPage = await (await browser.newContext()).newPage();
+  await login(studentPage, "student@example.com");
+  expect((await studentPage.request.get("/api/lektor/export?co=studenti")).status()).toBe(403);
+  expect((await (await browser.newContext()).request.get("/api/lektor/export?co=studenti")).status()).toBe(401);
+});
