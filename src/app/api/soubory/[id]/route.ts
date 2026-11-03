@@ -1,7 +1,6 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { participantWhere } from "@/lib/messages";
+import { getCurrentUser } from "@/lib/session";
 
 export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -16,8 +15,7 @@ export async function GET(_: Request, props: { params: Promise<{ id: string }> }
   }
 
   // Přílohy zpráv vidí jen účastníci konverzace.
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
+  const userId = (await getCurrentUser())?.id;
   if (!userId || !file.message) return new Response("Nepřihlášen", { status: 401 });
   const allowed = await db.enrollment.count({ where: { id: file.message.enrollmentId, ...participantWhere(userId) } });
   if (!allowed) return new Response("Zakázáno", { status: 403 });

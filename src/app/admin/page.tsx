@@ -5,8 +5,11 @@ import { parseParty } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { formatDate, formatMoney, formatTotals } from "@/lib/format";
 import { PLANS, effectivePlan, planPrice } from "@/lib/plans";
+import { requireAdmin } from "@/lib/session";
 
 export default async function AdminHome() {
+  // kontrola i ve stránce: layout se při klientské navigaci nemusí znovu vykonat
+  await requireAdmin();
   const now = new Date();
   const since = subDays(now, 30);
   const [users, tutors, lessons30, openInvoices, expired30, paid30, recentPaid] = await Promise.all([

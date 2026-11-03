@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/session";
 
 function csv(v: unknown) {
   const s = v === null || v === undefined ? "" : String(v);
@@ -13,8 +12,7 @@ function csv(v: unknown) {
  * Samotné hlášení se podává přes portál Finanční správy – ověřte formát s daňovým poradcem.
  */
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const me = session?.user?.id ? await db.user.findUnique({ where: { id: session.user.id } }) : null;
+  const me = await getCurrentUser();
   if (me?.role !== "ADMIN") return new Response("Forbidden", { status: 403 });
 
   const year = Number(new URL(req.url).searchParams.get("rok")) || new Date().getFullYear() - 1;

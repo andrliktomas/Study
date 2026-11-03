@@ -10,7 +10,8 @@ import { consumeVerificationToken, sendVerificationEmail } from "@/lib/email-ver
 import { mailConfigured, sendMail } from "@/lib/mail";
 import { TOO_MANY, clientIp, rateLimit } from "@/lib/rate-limit";
 import { safeCallbackUrl } from "@/lib/safe-redirect";
-import { requireUser } from "@/lib/session";
+import { redirect } from "next/navigation";
+import { clearSessionCookies, requireUser } from "@/lib/session";
 import { absoluteUrl, site } from "@/lib/site";
 import { hashToken, randomToken } from "@/lib/tokens";
 
@@ -155,7 +156,8 @@ export async function resetPassword(_: FormState, formData: FormData): Promise<F
     // odkaz přišel e-mailem, takže e-mail je zároveň ověřený
     db.user.update({
       where: { email: record.email },
-      data: { passwordHash: await bcrypt.hash(pw.data, 12), emailVerified: new Date() },
+      // nové heslo odhlásí všechna dosavadní přihlášení (i případného útočníka)
+      data: { passwordHash: await bcrypt.hash(pw.data, 12), emailVerified: new Date(), sessionVersion: { increment: 1 } },
     }),
     db.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
   ]);
@@ -173,8 +175,16 @@ export async function changePassword(_: FormState, formData: FormData): Promise<
     const ok = await bcrypt.compare(String(formData.get("current") ?? ""), user.passwordHash);
     if (!ok) return { error: "Současné heslo není správné." };
   }
-  await db.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(next.data, 12) } });
-  return { ok: true, message: user.passwordHash ? "Heslo bylo změněno." : "Heslo bylo nastaveno. Nyní se můžete přihlašovat i e-mailem." };
+  // změna hesla odhlásí všechna zařízení (včetně tohoto), první nastavení hesla ne
+  await db.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await bcrypt.hash(next.data, 12), ...(user.passwordHash ? { sessionVersion: { increment: 1 } } : {}) },
+  });
+  if (user.passwordHash) {
+    await clearSessionCookies();
+    redirect("/prihlaseni?heslo=zmeneno");
+  }
+  return { ok: true, message: "Heslo bylo nastaveno. Nyní se můžete přihlašovat i e-mailem." };
 }
 
 const accountSchema = z.object({

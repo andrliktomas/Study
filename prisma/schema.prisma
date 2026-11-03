@@ -22,6 +22,8 @@ model User {
   termsAcceptedAt DateTime?
   // účet byl smazán uživatelem – osobní údaje jsou anonymizované
   deletedAt       DateTime?
+  // zvýšení zneplatní všechna dosavadní přihlášení (změna/reset hesla, smazání účtu)
+  sessionVersion  Int       @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

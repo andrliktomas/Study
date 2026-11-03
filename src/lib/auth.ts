@@ -71,13 +71,15 @@ export const authOptions: NextAuthOptions = {
       if (user || trigger === "update" || !token.role) {
         const dbUser = await db.user.findUnique({
           where: { id: (user?.id ?? token.sub)! },
-          select: { id: true, role: true, name: true, image: true },
+          select: { id: true, role: true, name: true, image: true, sessionVersion: true },
         });
         if (dbUser) {
           token.sub = dbUser.id;
           token.role = dbUser.role;
           token.name = dbUser.name;
           token.picture = dbUser.image;
+          // verzi bereme jen při přihlášení – pozdější zvýšení tak staré tokeny zneplatní
+          if (user || token.sv === undefined) token.sv = dbUser.sessionVersion;
         }
       }
       return token;
@@ -87,6 +89,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub;
         session.user.role = (token.role as string) ?? "STUDENT";
         session.user.image = (token.picture as string | null) ?? null;
+        session.user.sessionVersion = token.sv ?? 0;
       }
       return session;
     },

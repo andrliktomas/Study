@@ -7,7 +7,8 @@ import { db } from "@/lib/db";
 import { AVATAR_MAX_BYTES, detectMime } from "@/lib/files";
 import { cancelFutureLessons } from "@/lib/purchases";
 import { TOO_MANY, rateLimit } from "@/lib/rate-limit";
-import { requireUser } from "@/lib/session";
+import { redirect } from "next/navigation";
+import { clearSessionCookies, requireUser } from "@/lib/session";
 
 export async function uploadAvatar(_: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
@@ -57,6 +58,7 @@ export async function deleteAccount(_: FormState, formData: FormData): Promise<F
   if (String(formData.get("confirm") ?? "").trim().toLowerCase() !== user.email) {
     return { error: "Pro potvrzení napište přesně svůj e-mail." };
   }
+  if (!(await rateLimit(`delete-account:${user.id}`, 5, 3600))) return { error: TOO_MANY };
   if (user.passwordHash) {
     const ok = await bcrypt.compare(String(formData.get("password") ?? ""), user.passwordHash);
     if (!ok) return { error: "Nesprávné heslo." };
@@ -94,9 +96,12 @@ export async function deleteAccount(_: FormState, formData: FormData): Promise<F
         emailVerified: null,
         role: "STUDENT",
         deletedAt: new Date(),
+        sessionVersion: { increment: 1 },
       },
     }),
   ]);
   revalidatePath("/lektori");
-  return { ok: true, message: "Účet byl smazán." };
+  // odhlásíme rovnou na serveru – po smazání už stránky přehledu uživatele nepustí
+  await clearSessionCookies();
+  redirect("/?ucet-smazan=1");
 }

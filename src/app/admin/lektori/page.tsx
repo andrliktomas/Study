@@ -5,8 +5,11 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { effectivePlan } from "@/lib/plans";
+import { requireAdmin } from "@/lib/session";
 
 export default async function AdminTutors(props: { searchParams: Promise<{ q?: string }> }) {
+  // kontrola i ve stránce: layout se při klientské navigaci nemusí znovu vykonat
+  await requireAdmin();
   const searchParams = await props.searchParams;
   const q = searchParams.q?.trim();
   const tutors = await db.tutorProfile.findMany({

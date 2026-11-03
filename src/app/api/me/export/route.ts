@@ -1,14 +1,13 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/session";
 
 /** Export všech osobních údajů uživatele (GDPR – právo na přenositelnost). */
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return new Response("Nepřihlášen", { status: 401 });
+  const me = await getCurrentUser();
+  if (!me) return new Response("Nepřihlášen", { status: 401 });
 
   const user = await db.user.findUniqueOrThrow({
-    where: { id: session.user.id },
+    where: { id: me.id },
     select: {
       id: true, name: true, email: true, emailVerified: true, image: true, role: true, timezone: true, termsAcceptedAt: true, createdAt: true,
       accounts: { select: { provider: true, scope: true } },

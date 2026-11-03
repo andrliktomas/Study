@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { db, login, unique } from "./helpers";
+import { db, login, registerAndVerify, unique } from "./helpers";
 
 test.afterAll(async () => {
   await db.$disconnect();
@@ -106,4 +106,28 @@ test("cron připomínek vyžaduje tajný klíč", async ({ request }) => {
   const ok = await request.get("/api/cron/reminders", { headers: { Authorization: "Bearer e2e-cron" } });
   expect(ok.status()).toBe(200);
   expect(await ok.json()).toHaveProperty("sent");
+});
+
+test("změna hesla odhlásí všechna zařízení", async ({ browser }) => {
+  const email = unique("heslo");
+  const first = await (await browser.newContext()).newPage();
+  const password = await registerAndVerify(first, { name: "Hana Heslová", email, role: "student" });
+  const second = await (await browser.newContext()).newPage();
+  await login(second, email, password);
+  await second.goto("/dashboard");
+  await expect(second).toHaveURL(/\/dashboard/);
+
+  await first.goto("/dashboard/nastaveni");
+  await first.fill("#pw-current", password);
+  await first.fill("#pw-new", "noveheslo123");
+  await first.fill("#pw-confirm", "noveheslo123");
+  await first.locator("form:has(#pw-new) button[type=submit]").click();
+  await first.waitForURL("**/prihlaseni?heslo=zmeneno");
+  await expect(first.getByText("Heslo je změněné")).toBeVisible();
+
+  // druhé zařízení se starým přihlášením už do přehledu nesmí
+  await second.goto("/dashboard");
+  await expect(second).toHaveURL(/\/prihlaseni/);
+  await login(second, email, "noveheslo123");
+  await expect(second).toHaveURL(/\/dashboard/);
 });

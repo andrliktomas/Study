@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { db } from "@/lib/db";
 import { formatDate, formatMoney } from "@/lib/format";
+import { requireAdmin } from "@/lib/session";
 
 const FILTERS = [
   { key: "vse", label: "Vše" },
@@ -12,6 +13,8 @@ const FILTERS = [
 const SRC: Record<string, string> = { STRIPE: "Karta", TRANSFER: "Převod", MANUAL: "Ručně", DEV: "Test" };
 
 export default async function AdminPayments(props: { searchParams: Promise<{ f?: string }> }) {
+  // kontrola i ve stránce: layout se při klientské navigaci nemusí znovu vykonat
+  await requireAdmin();
   const searchParams = await props.searchParams;
   const filter = FILTERS.find((x) => x.key === searchParams.f) ?? FILTERS[0];
   const purchases = await db.purchase.findMany({

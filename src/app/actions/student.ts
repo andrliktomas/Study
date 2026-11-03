@@ -20,17 +20,24 @@ import { accountFor, paymentReference } from "@/lib/payments";
  * Zapíše studenta k lektorovi. Noví studenti se počítají do tarifu lektora –
  * když je kapacita plná, vrátí "kapacita". Archivovaný student vrátí "archiv".
  */
-async function ensureEnrollment(tutorId: string, studentId: string): Promise<"ok" | "kapacita" | "archiv"> {
+async function ensureEnrollment(
+  tutorId: string,
+  studentId: string,
+  opts: { unarchive?: boolean } = {},
+): Promise<"ok" | "kapacita" | "archiv"> {
   return serializable(async (tx) => {
     const existing = await tx.enrollment.findUnique({ where: { tutorId_studentId: { tutorId, studentId } } });
-    if (existing) return existing.archivedAt ? "archiv" : "ok";
+    if (existing && !existing.archivedAt) return "ok";
+    if (existing && !opts.unarchive) return "archiv";
     const tutor = await tx.tutorProfile.findUniqueOrThrow({ where: { id: tutorId }, select: { plan: true, planActiveUntil: true } });
     const plan = effectivePlan(tutor);
     if (plan.maxStudents !== null) {
       const count = await tx.enrollment.count({ where: { tutorId, archivedAt: null } });
       if (count >= plan.maxStudents) return "kapacita";
     }
-    await tx.enrollment.create({ data: { tutorId, studentId } });
+    // návrat z archivu se do tarifu počítá stejně jako nový student
+    if (existing) await tx.enrollment.update({ where: { id: existing.id }, data: { archivedAt: null } });
+    else await tx.enrollment.create({ data: { tutorId, studentId } });
     return "ok";
   });
 }
@@ -199,12 +206,17 @@ export async function acceptInvitation(formData: FormData) {
   const user = await requireUser();
   const inv = await db.invitation.findUnique({ where: { token: String(formData.get("token")) } });
   if (!inv || inv.expiresAt < new Date()) redirect("/dashboard?chyba=pozvanka");
-  const res = await ensureEnrollment(inv.tutorId, user.id);
-  if (res === "kapacita") redirect(`/pozvanka/${inv.token}?chyba=kapacita`);
-  if (res === "archiv") {
-    await db.enrollment.update({ where: { tutorId_studentId: { tutorId: inv.tutorId, studentId: user.id } }, data: { archivedAt: null } });
+  // přijatou pozvánku (např. přeposlaný odkaz) nemůže použít další člověk
+  if (inv.acceptedAt) {
+    const mine = await db.enrollment.findUnique({ where: { tutorId_studentId: { tutorId: inv.tutorId, studentId: user.id } } });
+    if (!mine) redirect("/dashboard?chyba=pozvanka");
   }
-  if (!inv.acceptedAt) await db.invitation.update({ where: { id: inv.id }, data: { acceptedAt: new Date() } });
+  const res = await ensureEnrollment(inv.tutorId, user.id, { unarchive: true });
+  if (res === "kapacita") redirect(`/pozvanka/${inv.token}?chyba=kapacita`);
+  if (!inv.acceptedAt) {
+    const claimed = await db.invitation.updateMany({ where: { id: inv.id, acceptedAt: null }, data: { acceptedAt: new Date() } });
+    if (claimed.count === 0) redirect("/dashboard?chyba=pozvanka");
+  }
   redirect(`/dashboard/lektor/${inv.tutorId}?vitejte=1`);
 }
 

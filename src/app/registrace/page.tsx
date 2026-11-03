@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { AuthCard, Divider } from "@/components/AuthCard";
 import { GoogleButton } from "@/components/GoogleButton";
-import { authOptions, googleEnabled } from "@/lib/auth";
+import { googleEnabled } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/session";
 import { safeCallbackUrl } from "@/lib/safe-redirect";
 import { RegisterForm } from "./RegisterForm";
 
@@ -20,7 +20,7 @@ export default async function RegisterPage(
   const searchParams = await props.searchParams;
   const role = searchParams.role === "tutor" ? "tutor" : "student";
   const callbackUrl = safeCallbackUrl(searchParams.callbackUrl);
-  if (await getServerSession(authOptions)) redirect(callbackUrl);
+  if (await getCurrentUser()) redirect(callbackUrl);
   // Po registraci přes Google se lektor dostane na dashboard, kde si profil lektora založí jedním klikem.
   const googleCallback = role === "tutor" ? "/dashboard?stat-se-lektorem=1" : callbackUrl;
 

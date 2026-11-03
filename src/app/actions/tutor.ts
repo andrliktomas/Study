@@ -381,8 +381,9 @@ export async function refundPurchase(_: FormState, formData: FormData): Promise<
   if (lessons <= 0) return { error: "Z tohoto balíčku nezbývají žádné nevyčerpané lekce." };
   const amount = Math.min(purchase.amountCents - purchase.refundedCents, Math.round((purchase.amountCents * lessons) / purchase.lessonsTotal));
 
-  await db.purchase.update({
-    where: { id: purchase.id },
+  // podmínka na původní stav: dvojí odeslání formuláře nevrátí peníze dvakrát
+  const updated = await db.purchase.updateMany({
+    where: { id: purchase.id, status: "PAID", refundedLessons: purchase.refundedLessons, refundedCents: purchase.refundedCents },
     data: {
       refundedLessons: { increment: lessons },
       refundedCents: { increment: amount },
@@ -390,6 +391,7 @@ export async function refundPurchase(_: FormState, formData: FormData): Promise<
       ...(consumed === 0 ? { status: "REFUNDED" } : {}),
     },
   });
+  if (updated.count === 0) return { error: "Vrácení peněz už mezitím proběhlo." };
   await sendMail({
     to: purchase.student.email,
     subject: `Vrácení peněz: ${purchase.packageName}`,

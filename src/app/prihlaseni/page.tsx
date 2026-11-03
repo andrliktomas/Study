@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
 import { AuthCard, Divider } from "@/components/AuthCard";
 import { GoogleButton } from "@/components/GoogleButton";
-import { authOptions, googleEnabled } from "@/lib/auth";
+import { googleEnabled } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/session";
 import { safeCallbackUrl } from "@/lib/safe-redirect";
 import { LoginForm } from "./LoginForm";
 
@@ -17,11 +17,11 @@ const ERRORS: Record<string, string> = {
 };
 
 export default async function LoginPage(
-  props: { searchParams: Promise<{ callbackUrl?: string; error?: string; overeno?: string; email?: string }> }
+  props: { searchParams: Promise<{ callbackUrl?: string; error?: string; overeno?: string; email?: string; heslo?: string }> }
 ) {
   const searchParams = await props.searchParams;
   const callbackUrl = safeCallbackUrl(searchParams.callbackUrl);
-  if (await getServerSession(authOptions)) redirect(callbackUrl);
+  if (await getCurrentUser()) redirect(callbackUrl);
   const error = searchParams.error ? ERRORS[searchParams.error] ?? ERRORS.default : undefined;
 
   return (
@@ -31,6 +31,7 @@ export default async function LoginPage(
     >
       {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
       {searchParams.overeno && <p role="status" className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">E-mail je ověřený. Teď se můžete přihlásit.</p>}
+      {searchParams.heslo === "zmeneno" && <p role="status" className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Heslo je změněné a ostatní zařízení jsou odhlášená. Přihlaste se novým heslem.</p>}
       {googleEnabled && (
         <>
           <GoogleButton callbackUrl={callbackUrl} />

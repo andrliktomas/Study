@@ -6,6 +6,7 @@ import { parseParty } from "@/lib/billing";
 import { db } from "@/lib/db";
 import { formatDate, formatMoney, formatTotals } from "@/lib/format";
 import { planById } from "@/lib/plans";
+import { requireAdmin } from "@/lib/session";
 
 const FILTERS = [
   { key: "k-uhrade", label: "K úhradě", where: { status: "ISSUED" } },
@@ -21,6 +22,8 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 };
 
 export default async function AdminInvoices(props: { searchParams: Promise<{ f?: string; q?: string }> }) {
+  // kontrola i ve stránce: layout se při klientské navigaci nemusí znovu vykonat
+  await requireAdmin();
   const searchParams = await props.searchParams;
   const filter = FILTERS.find((x) => x.key === searchParams.f) ?? FILTERS[0];
   const q = searchParams.q?.trim();

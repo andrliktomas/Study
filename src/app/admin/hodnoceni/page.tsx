@@ -4,8 +4,11 @@ import { Stars } from "@/components/Stars";
 import { SubmitButton } from "@/components/SubmitButton";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
+import { requireAdmin } from "@/lib/session";
 
 export default async function AdminReviews() {
+  // kontrola i ve stránce: layout se při klientské navigaci nemusí znovu vykonat
+  await requireAdmin();
   const reviews = await db.review.findMany({
     include: { student: { select: { name: true, email: true } }, tutor: { include: { user: { select: { name: true } } } } },
     orderBy: { createdAt: "desc" },

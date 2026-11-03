@@ -149,7 +149,7 @@ export function AvatarForm({ name, image }: { name: string | null; image: string
 export function DeleteAccountForm({ email, hasPassword }: { email: string; hasPassword: boolean }) {
   const [state, action] = useActionState(deleteAccount, null);
   useEffect(() => {
-    if (state?.ok) signOut({ callbackUrl: "/?ucet-smazan=1" });
+    if (state?.ok) signOut({ callbackUrl: "/?ucet-smazan=1" }); // záloha, server už přesměroval
   }, [state]);
   return (
     <form action={action} className="grid max-w-xl gap-3">
