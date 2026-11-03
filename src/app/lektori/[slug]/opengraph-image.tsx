@@ -34,7 +34,6 @@ export default async function Image({ params }: { params: Promise<{ slug: string
       <OgFrame>
         <div style={{ display: "flex", alignItems: "center", gap: 48 }}>
           {avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img src={avatar} width={220} height={220} style={{ borderRadius: 999, border: "8px solid white", objectFit: "cover" }} alt="" />
           ) : (
             <div style={{ width: 220, height: 220, borderRadius: 999, background: "#14b8b8", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 96, fontWeight: 800 }}>
