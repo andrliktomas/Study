@@ -26,10 +26,11 @@ export async function sendMessage(_: FormState, formData: FormData): Promise<For
   if (hasFile) {
     if (file.size > ATTACHMENT_MAX_BYTES) return { error: `Soubor je větší než ${formatBytes(ATTACHMENT_MAX_BYTES)}.` };
     const data = Buffer.from(await file.arrayBuffer());
+    const bytes = new Uint8Array(data);
     const filename = safeFilename(file.name);
     const mime = detectMime(filename, data, "attachment");
     if (!mime) return { error: "Tento typ souboru nepodporujeme. Pošlete PDF, Word/Excel/PowerPoint, obrázek, MP3/M4A nebo TXT." };
-    fileId = (await db.storedFile.create({ data: { ownerId: user.id, kind: "ATTACHMENT", filename, mimeType: mime, size: data.length, data } })).id;
+    fileId = (await db.storedFile.create({ data: { ownerId: user.id, kind: "ATTACHMENT", filename, mimeType: mime, size: data.length, data: bytes } })).id;
   }
 
   // e-mail posíláme jen na první nepřečtenou zprávu – při delší výměně nespamujeme

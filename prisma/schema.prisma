@@ -1,5 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  // bez nativního query enginu (Rust) – dotazy jdou přes ovladač pg; funguje i na Windows ARM64
+  engineType = "client"
 }
 
 datasource db {

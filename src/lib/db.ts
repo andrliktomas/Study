@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
+import { createPrismaClient } from "./prisma-client";
 
 /**
  * Adresa databáze. Kromě DATABASE_URL bereme i názvy, které vytváří integrace Neon/Postgres na Vercelu.
@@ -16,7 +17,7 @@ export function databaseUrl() {
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-const url = databaseUrl();
-export const db = globalForPrisma.prisma ?? new PrismaClient(url ? { datasources: { db: { url } } } : undefined);
+// připojení vzniká až při prvním dotazu, import modulu (např. při buildu) databázi nepotřebuje
+export const db = globalForPrisma.prisma ?? createPrismaClient(databaseUrl());
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;

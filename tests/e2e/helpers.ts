@@ -1,10 +1,10 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { expect, type Page } from "@playwright/test";
-import { PrismaClient } from "@prisma/client";
 import { E2E_DATABASE_URL, MAIL_OUTBOX_DIR } from "../../playwright.config";
+import { createPrismaClient } from "../../src/lib/prisma-client";
 
-export const db = new PrismaClient({ datasources: { db: { url: E2E_DATABASE_URL } } });
+export const db = createPrismaClient(E2E_DATABASE_URL);
 
 export const unique = (name: string) => `${name}-${Date.now()}-${Math.floor(Math.random() * 1e4)}@example.com`;
 

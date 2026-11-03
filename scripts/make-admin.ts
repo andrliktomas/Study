@@ -1,7 +1,7 @@
 // Použití: npm run make-admin -- email@domena.cz
-import { PrismaClient } from "@prisma/client";
+import { createPrismaClient } from "../src/lib/prisma-client";
 
-const db = new PrismaClient();
+const db = createPrismaClient(process.env.DATABASE_URL);
 const email = process.argv[2]?.toLowerCase().trim();
 
 (async () => {

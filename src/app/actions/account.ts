@@ -17,12 +17,13 @@ export async function uploadAvatar(_: FormState, formData: FormData): Promise<Fo
   if (!(file instanceof File) || file.size === 0) return { error: "Vyberte obrázek." };
   if (file.size > AVATAR_MAX_BYTES) return { error: "Obrázek je příliš velký." };
   const data = Buffer.from(await file.arrayBuffer());
+  const bytes = new Uint8Array(data);
   const mime = detectMime(file.name || "foto.jpg", data, "image");
   if (!mime) return { error: "Podporujeme fotky JPG, PNG nebo WebP." };
 
   const stored = await db.$transaction(async (tx) => {
     await tx.storedFile.deleteMany({ where: { ownerId: user.id, kind: "AVATAR" } });
-    const f = await tx.storedFile.create({ data: { ownerId: user.id, kind: "AVATAR", filename: "avatar", mimeType: mime, size: data.length, data } });
+    const f = await tx.storedFile.create({ data: { ownerId: user.id, kind: "AVATAR", filename: "avatar", mimeType: mime, size: data.length, data: bytes } });
     await tx.user.update({ where: { id: user.id }, data: { image: `/api/soubory/${f.id}` } });
     return f;
   });

@@ -1,7 +1,7 @@
-import { PrismaClient } from "@prisma/client";
+import { createPrismaClient } from "../src/lib/prisma-client";
 import bcrypt from "bcryptjs";
 
-const db = new PrismaClient();
+const db = createPrismaClient(process.env.DATABASE_URL);
 const DAY = 864e5;
 
 async function main() {
